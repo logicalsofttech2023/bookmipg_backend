@@ -1,9 +1,23 @@
 import express from "express";
-import { addReview } from "../controllers/userController.js";
+import {
+  addReview,
+  getReviewsByHotelId,
+} from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
-import { uploadProfile } from "../middlewares/uploadMiddleware.js";
+import { uploadRating } from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
 
-router.get("/addReview", authMiddleware, addReview);
+router.post(
+  "/addReview",
+  authMiddleware,
+  uploadRating.array("images", 20),
+  addReview
+);
+
+router.get(
+  "/getReviewsByHotelId",
+  authMiddleware,
+  getReviewsByHotelId
+);
 
 export default router;

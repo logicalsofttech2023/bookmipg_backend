@@ -4,6 +4,10 @@ import Hotel from "../models/Hotel.js";
 import path from "path";
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import RatingReview from "../models/RatingReview.js";
+import Booking  from "../models/Booking.js";
+
+const MAX_ADVANCE_BOOKING_DAYS = 180;
 
 export const addReview = async (req, res) => {
     try {
@@ -35,4 +39,96 @@ export const addReview = async (req, res) => {
       console.error("Error adding review:", error);
       res.status(500).json({ message: "Server error", error: error.message, status: false });
     }
+};
+
+export const getReviewsByHotelId = async (req, res) => {
+  try {
+    const { hotelId } = req.query;
+    
+
+    // Check if hotel exists
+    const hotel = await Hotel.findById(hotelId);
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found.", status: false });
+    }
+
+    // Fetch reviews for the given hotel
+    const reviews = await RatingReview.find({ hotel: hotelId })
+      .populate("user", "name profileImage")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ message: "Reviews fetched successfully!", reviews, status: true });
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    res.status(500).json({ message: "Server error", error: error.message, status: false });
+  }
+};
+
+export const bookHotel = async (req, res) => {
+  try {
+    const { hotelId, checkInDate, checkOutDate, room } = req.body;
+    const userId = req.user.id;
+
+    if (!hotelId || !checkInDate || !checkOutDate || !room) {
+      return res.status(400).json({ message: "All fields are required", status: false });
+    }
+
+    const hotel = await Hotel.findById(hotelId);
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found", status: false });
+    }
+
+    // Convert dates to proper format
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    const today = new Date();
+
+    // Validate check-in and check-out dates
+    if (checkIn < today) {
+      return res.status(400).json({ message: "Check-in date must be in the future.", status: false });
+    }
+    
+    if (checkOut <= checkIn) {
+      return res.status(400).json({ message: "Check-out date must be after check-in date.", status: false });
+    }
+
+    // Restrict advance bookings beyond 6 months
+    const maxAdvanceDate = new Date();
+    maxAdvanceDate.setDate(maxAdvanceDate.getDate() + MAX_ADVANCE_BOOKING_DAYS);
+    if (checkIn > maxAdvanceDate) {
+      return res.status(400).json({ message: "Bookings cannot be made more than 6 months in advance.", status: false });
+    }
+
+    // Check if the room is already booked during the selected period
+    const existingBooking = await Booking.findOne({
+      hotel: hotelId,
+      room,
+      $or: [
+        { checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } } // Overlapping booking
+      ],
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ message: "Selected room is already booked for these dates.", status: false });
+    }
+
+    // Calculate total price
+    const nights = (checkOut - checkIn) / (1000 * 60 * 60 * 24);
+    const totalPrice = hotel.pricePerNight * nights;
+
+    // Create new booking
+    const newBooking = new Booking({
+      user: userId,
+      hotel: hotelId,
+      room,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      totalPrice,
+    });
+
+    await newBooking.save();
+    res.status(201).json({ message: "Booking successful!", booking: newBooking, status: true });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };

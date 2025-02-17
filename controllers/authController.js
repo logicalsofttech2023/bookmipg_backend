@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import path from "path";
 
-
 const generateJwtToken = (user) => {
   return jwt.sign(
     { id: user._id, phone: user.phone, role: user.role },
@@ -23,10 +22,14 @@ export const generateOtp = async (req, res) => {
     if (!phone || !countryCode) {
       return res
         .status(400)
-        .json({ message: "phone,countryCode number is required", status: false });
+        .json({
+          message: "phone,countryCode number is required",
+          status: false,
+        });
     }
 
     let user = await User.findOne({ phone });
+    
     const generatedOtp = generateFourDigitOtp();
     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -34,7 +37,12 @@ export const generateOtp = async (req, res) => {
       user.otp = generatedOtp;
       user.otpExpiresAt = otpExpiresAt;
     } else {
-      user = new User({ phone, countryCode, otp: generatedOtp, otpExpiresAt });
+      user = new User({
+        phone,
+        countryCode,
+        otp: generatedOtp,
+        otpExpiresAt,
+      });
     }
     await user.save();
 
@@ -45,7 +53,6 @@ export const generateOtp = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
@@ -57,7 +64,10 @@ export const verifyOtp = async (req, res) => {
     if (!phone || !countryCode || !otp) {
       return res
         .status(400)
-        .json({ message: "Phone number, country code, and OTP are required", status: false });
+        .json({
+          message: "Phone number, country code, and OTP are required",
+          status: false,
+        });
     }
 
     let user = await User.findOne({ phone, countryCode });
@@ -74,18 +84,33 @@ export const verifyOtp = async (req, res) => {
     await user.save();
 
     let token = "";
+    let userExit = false;
     if (user.name) {
       token = generateJwtToken(user);
+      userExit = true;
     }
 
-    res
-      .status(200)
-      .json({
-        message: "OTP verified successfully",
-        status: true,
-        token,
-        data: user,
-      });
+    const formattedUser = {
+      _id: user._id,
+      email: user.email || "",
+      phone: user.phone || "",
+      countryCode: user.countryCode || "",
+      profileImage: user.profileImage || "",
+      otp: user.otp || "",
+      otpExpiresAt: user.otpExpiresAt || "",
+      isVerified: user.isVerified,
+      role: user.role || "user",
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    res.status(200).json({
+      message: "OTP verified successfully",
+      status: true,
+      token,
+      userExit,
+      data: formattedUser,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server Error", status: false });
   }
@@ -97,7 +122,10 @@ export const resendOtp = async (req, res) => {
     if (!phone || !countryCode) {
       return res
         .status(400)
-        .json({ message: "Phone number and country code are required", status: false });
+        .json({
+          message: "Phone number and country code are required",
+          status: false,
+        });
     }
 
     let user = await User.findOne({ phone, countryCode });
@@ -147,7 +175,12 @@ export const completeRegistration = async (req, res) => {
 
     res
       .status(201)
-      .json({ message: "User registered successfully", status: true, token, data: user });
+      .json({
+        message: "User registered successfully",
+        status: true,
+        token,
+        data: user,
+      });
   } catch (error) {
     res.status(500).json({ message: "Server Error", status: false });
   }
@@ -157,9 +190,11 @@ export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const { name, email, dob, gender, maritalStatus } = req.body;
-    
+
     // Fixing profile image path
-    const profileImage = req.file ? req.file.path.split(path.sep).join("/") : "";
+    const profileImage = req.file
+      ? req.file.path.split(path.sep).join("/")
+      : "";
 
     let user = await User.findById(userId);
     if (!user) {
@@ -176,7 +211,9 @@ export const updateProfile = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({ message: "Profile updated successfully", status: true, user });
+    res
+      .status(200)
+      .json({ message: "Profile updated successfully", status: true, user });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error", status: false });

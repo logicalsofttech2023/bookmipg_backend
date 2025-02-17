@@ -21,6 +21,18 @@ const hotelStorage = multer.diskStorage({
     }
 });
 
+
+// Storage configuration for rating images
+const ratingStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/rating/");
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+
 // File filter for only images
 const fileFilter = (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png/;
@@ -44,6 +56,12 @@ export const uploadProfile = multer({
 // Hotel image upload (multiple images allowed)
 export const uploadHotel = multer({ 
     storage: hotelStorage, 
+    fileFilter,
+    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+});
+
+export const uploadRating = multer({ 
+    storage: ratingStorage, 
     fileFilter,
     limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
 });
