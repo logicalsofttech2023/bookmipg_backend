@@ -19,11 +19,11 @@ const generateFourDigitOtp = () => {
 
 export const generateOtp = async (req, res) => {
   try {
-    const { phone } = req.body;
-    if (!phone) {
+    const { phone, countryCode } = req.body;
+    if (!phone || !countryCode) {
       return res
         .status(400)
-        .json({ message: "Phone number is required", status: false });
+        .json({ message: "Phone,countryCode number is required", status: false });
     }
 
     let user = await User.findOne({ phone });
@@ -34,7 +34,7 @@ export const generateOtp = async (req, res) => {
       user.otp = generatedOtp;
       user.otpExpiresAt = otpExpiresAt;
     } else {
-      user = new User({ phone, otp: generatedOtp, otpExpiresAt });
+      user = new User({ phone, countryCode, otp: generatedOtp, otpExpiresAt });
     }
     await user.save();
 
@@ -44,21 +44,23 @@ export const generateOtp = async (req, res) => {
       data: user,
     });
   } catch (error) {
+    console.log(error);
+    
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
 
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
+    const { phone, countryCode, otp } = req.body;
 
-    if (!phone || !otp) {
+    if (!phone || !countryCode || !otp) {
       return res
         .status(400)
-        .json({ message: "Phone number and OTP are required", status: false });
+        .json({ message: "Phone number, country code, and OTP are required", status: false });
     }
 
-    let user = await User.findOne({ phone });
+    let user = await User.findOne({ phone, countryCode });
     if (!user || user.otp !== otp) {
       return res.status(400).json({ message: "Invalid OTP", status: false });
     }
@@ -67,11 +69,11 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "OTP expired", status: false });
     }
 
-    user.otpExpiresAt = null;
+    user.otpExpiresAt = "";
     user.isVerified = true;
     await user.save();
 
-    let token = null;
+    let token = "";
     if (user.name) {
       token = generateJwtToken(user);
     }
@@ -91,14 +93,14 @@ export const verifyOtp = async (req, res) => {
 
 export const resendOtp = async (req, res) => {
   try {
-    const { phone } = req.body;
-    if (!phone) {
+    const { phone, countryCode } = req.body;
+    if (!phone || !countryCode) {
       return res
         .status(400)
-        .json({ message: "Phone number is required", status: false });
+        .json({ message: "Phone number and country code are required", status: false });
     }
 
-    let user = await User.findOne({ phone });
+    let user = await User.findOne({ phone, countryCode });
     if (!user) {
       return res.status(400).json({ message: "User not found", status: false });
     }
@@ -119,7 +121,7 @@ export const resendOtp = async (req, res) => {
 export const completeRegistration = async (req, res) => {
   try {
     const { phone, name, email, role } = req.body;
-    const profileImage = req.file ? req.file.path : null;
+    const profileImage = req.file ? req.file.path : "";
 
     let user = await User.findOne({ phone });
     if (!user || !user.isVerified) {
@@ -157,7 +159,7 @@ export const updateProfile = async (req, res) => {
     const { name, email, dob, gender, maritalStatus } = req.body;
     
     // Fixing profile image path
-    const profileImage = req.file ? req.file.path.split(path.sep).join("/") : null;
+    const profileImage = req.file ? req.file.path.split(path.sep).join("/") : "";
 
     let user = await User.findById(userId);
     if (!user) {
@@ -180,7 +182,6 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
-
 
 export const getUserById = async (req, res) => {
   try {
