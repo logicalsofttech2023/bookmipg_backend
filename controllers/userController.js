@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 export const addReview = async (req, res) => {
     try {
       const { hotelId, rating, review } = req.body;
-      const userId = req.user.id; // Assuming user ID is available from authentication middleware
+      const userId = req.user.id;
   
       // Check if hotel exists
       const hotel = await Hotel.findById(hotelId);
@@ -25,12 +25,11 @@ export const addReview = async (req, res) => {
         user: userId,
         rating,
         review,
-        images: imageUrls,  // Store the array of image paths
+        images: imageUrls,
       });
   
       await newReview.save();
   
-      // Return the newly added review
       res.status(201).json({ message: "Review added successfully!", review: newReview, status: true });
     } catch (error) {
       console.error("Error adding review:", error);

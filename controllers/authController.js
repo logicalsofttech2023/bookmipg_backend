@@ -23,7 +23,7 @@ export const generateOtp = async (req, res) => {
     if (!phone || !countryCode) {
       return res
         .status(400)
-        .json({ message: "Phone,countryCode number is required", status: false });
+        .json({ message: "phone,countryCode number is required", status: false });
     }
 
     let user = await User.findOne({ phone });

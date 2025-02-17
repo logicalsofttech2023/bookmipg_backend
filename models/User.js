@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     name: { type: String },
-    email: { type: String, unique: true, default: "" },
-    phone: { type: Number, required: true, unique: true },
-    countryCode: { type: Number, required: true, },
+    email: { type: String, default: "" },
+    phone: { type: String, required: true, },
+    countryCode: { type: String, required: true, },
     profileImage: { type: String, default: "" },
     otp: { type: String },
     otpExpiresAt: { type: Date },
