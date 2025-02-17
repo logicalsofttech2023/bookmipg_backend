@@ -59,7 +59,7 @@ export const generateOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, countryCode, otp } = req.body;
+    const { phone, countryCode, otp, firebaseToken } = req.body;
 
     if (!phone || !countryCode || !otp) {
       return res
@@ -100,6 +100,7 @@ export const verifyOtp = async (req, res) => {
       otpExpiresAt: user.otpExpiresAt || "",
       isVerified: user.isVerified,
       role: user.role || "user",
+      firebaseToken: firebaseToken || "",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -148,7 +149,7 @@ export const resendOtp = async (req, res) => {
 
 export const completeRegistration = async (req, res) => {
   try {
-    const { phone, name, email, role } = req.body;
+    const { phone, name, email, role, firebaseToken } = req.body;
     const profileImage = req.file ? req.file.path : "";
 
     let user = await User.findOne({ phone });
@@ -169,6 +170,7 @@ export const completeRegistration = async (req, res) => {
     user.role = role;
     user.profileImage = profileImage;
     user.isVerified = false;
+    user.firebaseToken = firebaseToken || "";
     await user.save();
 
     const token = generateJwtToken(user);

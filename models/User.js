@@ -4,8 +4,8 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String },
     email: { type: String },
-    phone: { type: String, required: true, },
-    countryCode: { type: String, required: true, },
+    phone: { type: String, required: true },
+    countryCode: { type: String, required: true },
     profileImage: { type: String, default: null },
     otp: { type: String },
     otpExpiresAt: { type: Date },
@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["single", "married", "divorced", "widowed"],
     },
+    firebaseToken: { type: String },
   },
   { timestamps: true }
 );

@@ -132,3 +132,83 @@ export const bookHotel = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const getBookingByUserId = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const bookings = await Booking.find({ user: userId }).populate("hotel");
+
+    if (!bookings.length) {
+      return res.status(404).json({ message: "No bookings found", status: false });
+    }
+
+    res.status(200).json({ message: "Bookings retrieved successfully", bookings, status: true });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const updateBookingStatus = async (req, res) => {
+  try {
+    const { bookingId, status } = req.body;
+
+    // Validate required fields
+    if (!bookingId || !status) {
+      return res.status(400).json({ message: "Booking ID and status are required", status: false });
+    }
+
+    // Validate status value
+    const validStatuses = ["pending", "confirmed", "cancelled", "upcoming"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value", status: false });
+    }
+
+    // Find and update the booking
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status },
+      { new: true }
+    );
+
+    if (!updatedBooking) {
+      return res.status(404).json({ message: "Booking not found", status: false });
+    }
+
+    res.status(200).json({ message: "Booking status updated successfully", booking: updatedBooking, status: true });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getBookingByUser = async (req, res) => {
+  try {
+    const {userId} = req.query;
+
+    const bookings = await Booking.find({ user: userId }).populate("hotel");
+
+    if (!bookings.length) {
+      return res.status(404).json({ message: "No bookings found", status: false });
+    }
+
+    res.status(200).json({ message: "Bookings retrieved successfully", bookings, status: true });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getAllHotels = async (req, res) => {
+  try {
+    const hotels = await Hotel.find();
+
+    if (!hotels.length) {
+      return res.status(404).json({ message: "No hotels found", status: false });
+    }
+
+    res.status(200).json({ message: "Hotels retrieved successfully", status: true, hotels });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
