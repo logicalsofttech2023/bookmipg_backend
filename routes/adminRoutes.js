@@ -40,13 +40,13 @@ router.post(
 
 router.get("/getPolicy", authMiddleware, roleMiddleware(["admin"]), getPolicy);
 
-router.post("/addHotel", authMiddleware, roleMiddleware(["admin","vendor"]), uploadHotel.array("images", 20), addHotel);
+router.post("/addHotel", authMiddleware, uploadHotel.array("images", 20), addHotel);
 
-router.post("/updateHotel", authMiddleware, roleMiddleware(["admin","vendor"]), uploadHotel.array("images", 20), updateHotel);
+router.post("/updateHotel", authMiddleware, uploadHotel.array("images", 20), updateHotel);
 
-router.get("/getByHotelId", authMiddleware, roleMiddleware(["admin", "vendor"]), getByHotelId);
+router.get("/getByHotelId", authMiddleware, getByHotelId);
 
-router.get("/getHotelsByOwnerId", authMiddleware, roleMiddleware(["admin","vendor"]), getHotelsByOwnerId);
+router.get("/getHotelsByOwnerId", authMiddleware, getHotelsByOwnerId);
 
 router.post("/deleteHotel", authMiddleware, roleMiddleware(["admin"]), deleteHotel);
 

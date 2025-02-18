@@ -20,16 +20,14 @@ export const generateOtp = async (req, res) => {
   try {
     const { phone, countryCode } = req.body;
     if (!phone || !countryCode) {
-      return res
-        .status(400)
-        .json({
-          message: "phone,countryCode number is required",
-          status: false,
-        });
+      return res.status(400).json({
+        message: "phone,countryCode number is required",
+        status: false,
+      });
     }
 
     let user = await User.findOne({ phone });
-    
+
     const generatedOtp = generateFourDigitOtp();
     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -62,12 +60,10 @@ export const verifyOtp = async (req, res) => {
     const { phone, countryCode, otp, firebaseToken } = req.body;
 
     if (!phone || !countryCode || !otp) {
-      return res
-        .status(400)
-        .json({
-          message: "Phone number, country code, and OTP are required",
-          status: false,
-        });
+      return res.status(400).json({
+        message: "Phone number, country code, and OTP are required",
+        status: false,
+      });
     }
 
     let user = await User.findOne({ phone, countryCode });
@@ -121,12 +117,10 @@ export const resendOtp = async (req, res) => {
   try {
     const { phone, countryCode } = req.body;
     if (!phone || !countryCode) {
-      return res
-        .status(400)
-        .json({
-          message: "Phone number and country code are required",
-          status: false,
-        });
+      return res.status(400).json({
+        message: "Phone number and country code are required",
+        status: false,
+      });
     }
 
     let user = await User.findOne({ phone, countryCode });
@@ -149,7 +143,16 @@ export const resendOtp = async (req, res) => {
 
 export const completeRegistration = async (req, res) => {
   try {
-    const { phone, name, email, role, firebaseToken } = req.body;
+    const {
+      phone,
+      name,
+      email,
+      role,
+      firebaseToken,
+      dob,
+      gender,
+      maritalStatus,
+    } = req.body;
     const profileImage = req.file ? req.file.path : "";
 
     let user = await User.findOne({ phone });
@@ -168,6 +171,9 @@ export const completeRegistration = async (req, res) => {
     user.name = name;
     user.email = email;
     user.role = role;
+    user.dob = dob;
+    user.gender = gender;
+    user.maritalStatus = maritalStatus;
     user.profileImage = profileImage;
     user.isVerified = false;
     user.firebaseToken = firebaseToken || "";
@@ -175,14 +181,12 @@ export const completeRegistration = async (req, res) => {
 
     const token = generateJwtToken(user);
 
-    res
-      .status(201)
-      .json({
-        message: "User registered successfully",
-        status: true,
-        token,
-        data: user,
-      });
+    res.status(201).json({
+      message: "User registered successfully",
+      status: true,
+      token,
+      data: user,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server Error", status: false });
   }
