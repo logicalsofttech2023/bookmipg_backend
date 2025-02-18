@@ -4,7 +4,7 @@ import path from "path";
 // Storage configuration for profile images
 const profileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/profile/"); // Profile image path
+        cb(null, "uploads/profile/");
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`);
