@@ -12,10 +12,10 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     role: { type: String, enum: ["vendor", "admin", "user"], default: "user" },
     dob: { type: Date },
-    gender: { type: String, enum: ["male", "female", "other"] },
+    gender: { type: String, enum: ["Male", "Female", "Undisclosed"] },
     maritalStatus: {
       type: String,
-      enum: ["single", "married", "divorced", "widowed"],
+      enum: ["Married", "Unmarried", "Undisclosed"],
     },
     firebaseToken: { type: String },
   },
