@@ -103,7 +103,7 @@ export const verifyOtp = async (req, res) => {
       firebaseToken: firebaseToken || "",
       name: user.name || "",
       dob: user.dob || "",
-      gander: user.gender || "",
+      gender: user.gender || "",
       maritalStatus: user.maritalStatus || "",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

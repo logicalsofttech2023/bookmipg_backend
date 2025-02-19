@@ -8,7 +8,10 @@ import {
   getBookingByUser,
   getAllHotels,
   getHotelById,
-  getAllHotelsByFilter
+  getAllHotelsByFilter,
+  addFavorite,
+  removeFavorite,
+  getFavorites,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadRating, uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -30,6 +33,12 @@ router.get("/getBookingByUserId", authMiddleware, getBookingByUserId);
 router.post("/updateBookingStatus", authMiddleware, updateBookingStatus);
 
 router.get("/getBookingByUser", authMiddleware, getBookingByUser);
+
+router.post("/addFavorite", authMiddleware, addFavorite);
+
+router.post("/removeFavorite", authMiddleware, removeFavorite);
+
+router.get("/getFavorites", authMiddleware, getFavorites);
 
 router.get("/getAllHotels", getAllHotels);
 
