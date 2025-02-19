@@ -57,6 +57,7 @@ export const generateOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
+    console.log(req.body);
     const { phone, countryCode, otp, firebaseToken } = req.body;
 
     if (!phone || !countryCode || !otp) {
@@ -65,8 +66,11 @@ export const verifyOtp = async (req, res) => {
         status: false,
       });
     }
+    
 
     let user = await User.findOne({ phone, countryCode });
+    
+    
     if (!user || user.otp !== otp) {
       return res.status(400).json({ message: "Invalid OTP", status: false });
     }
@@ -97,6 +101,10 @@ export const verifyOtp = async (req, res) => {
       isVerified: user.isVerified,
       role: user.role || "user",
       firebaseToken: firebaseToken || "",
+      name: user.name || "",
+      dob: user.dob || "",
+      gander: user.gender || "",
+      maritalStatus: user.maritalStatus || "",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
