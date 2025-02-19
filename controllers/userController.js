@@ -257,12 +257,49 @@ export const getBookingByUser = async (req, res) => {
   }
 };
 
-export const getAllHotels = async (req, res) => {
+export const getAllHotelsForApp = async (req, res) => {
   try {
-    const {userId} = req.query;
+    const {userId} = req.user.id;
     console.log(userId);
     
 
+    // Fetch all hotels
+    const hotels = await Hotel.find();
+
+    if (!hotels.length) {
+      return res
+        .status(404)
+        .json({ message: "No hotels found", status: false });
+    }
+
+    let updatedHotels = hotels;
+
+    // If user is authenticated, check favorites
+    if (userId) {
+      const userFavorites = await Favorite.find({ user: userId }).select(
+        "hotel"
+      );
+      const favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
+
+      updatedHotels = hotels.map((hotel) => ({
+        ...hotel._doc,
+        isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
+      }));
+    }
+
+    res.status(200).json({
+      message: "Hotels retrieved successfully",
+      status: true,
+      hotels: updatedHotels,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getAllHotelsForWeb = async (req, res) => {
+  try {
+    const {userId} = req.query;
     // Fetch all hotels
     const hotels = await Hotel.find();
 

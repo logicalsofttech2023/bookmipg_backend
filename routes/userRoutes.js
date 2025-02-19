@@ -6,7 +6,8 @@ import {
   getBookingByUserId,
   updateBookingStatus,
   getBookingByUser,
-  getAllHotels,
+  getAllHotelsForApp,
+  getAllHotelsForWeb,
   getHotelById,
   getAllHotelsByFilter,
   addFavorite,
@@ -40,7 +41,9 @@ router.post("/removeFavorite", authMiddleware, removeFavorite);
 
 router.get("/getFavorites", authMiddleware, getFavorites);
 
-router.get("/getAllHotels", getAllHotels);
+router.get("/getAllHotels",authMiddleware, getAllHotelsForApp);
+
+router.get("/getAllHotelsForWeb", getAllHotelsForWeb);
 
 router.get("/getHotelById", getHotelById);
 
