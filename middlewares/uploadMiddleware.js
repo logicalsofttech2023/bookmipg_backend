@@ -4,7 +4,7 @@ import path from "path";
 // Storage configuration for profile images
 const profileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/profile/");
+        cb(null, "uploads/Profile/");
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`);
@@ -14,7 +14,7 @@ const profileStorage = multer.diskStorage({
 // Storage configuration for hotel images
 const hotelStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/hotel/"); // Hotel image path
+        cb(null, "uploads/Hotel/"); // Hotel image path
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`);
@@ -25,7 +25,7 @@ const hotelStorage = multer.diskStorage({
 // Storage configuration for rating images
 const ratingStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/rating/");
+        cb(null, "uploads/Rating/");
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`);
