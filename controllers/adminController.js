@@ -2,8 +2,8 @@ import User from "../models/User.js";
 import Policy from "../models/Policy.js";
 import Hotel from "../models/Hotel.js";
 import path from "path";
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -44,7 +44,11 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Internal Server Error", status: false, error: error.message });
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
   }
 };
 
@@ -85,7 +89,11 @@ export const getAllOwners = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching owners:", error);
-    res.status(500).json({ message: "Internal Server Error", status: false, error: error.message });
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
   }
 };
 
@@ -93,22 +101,32 @@ export const policyUpdate = async (req, res) => {
   try {
     const { type, content } = req.body;
     if (!type || !content) {
-      return res.status(400).json({ message: "Type and content are required", status: false });
+      return res
+        .status(400)
+        .json({ message: "Type and content are required", status: false });
     }
 
     let policy = await Policy.findOne({ type });
     if (policy) {
       policy.content = content;
       await policy.save();
-      return res.status(200).json({ message: "Policy updated successfully", status: true, policy });
+      return res
+        .status(200)
+        .json({ message: "Policy updated successfully", status: true, policy });
     } else {
       policy = new Policy({ type, content });
       await policy.save();
-      return res.status(200).json({ message: "Policy created successfully", status: true, policy });
+      return res
+        .status(200)
+        .json({ message: "Policy created successfully", status: true, policy });
     }
   } catch (error) {
     console.error("Error updating policy:", error);
-    res.status(500).json({ message: "Internal Server Error", status: false, error: error.message });
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
   }
 };
 
@@ -116,31 +134,72 @@ export const getPolicy = async (req, res) => {
   try {
     const { type } = req.query;
     if (!type) {
-      return res.status(400).json({ message: "Policy type is required", status: false });
+      return res
+        .status(400)
+        .json({ message: "Policy type is required", status: false });
     }
 
     const policy = await Policy.findOne({ type });
     if (!policy) {
-      return res.status(404).json({ message: "Policy not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Policy not found", status: false });
     }
 
-    res.status(200).json({ message: "Policy fetched successfully", status: true, policy });
+    res
+      .status(200)
+      .json({ message: "Policy fetched successfully", status: true, policy });
   } catch (error) {
     console.error("Error fetching policy:", error);
-    res.status(500).json({ message: "Internal Server Error", status: false, error: error.message });
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
   }
 };
 
 export const addHotel = async (req, res) => {
   try {
-    const { name, address, city, state, country, zipCode, pricePerNight, rating, amenities, latitude, longitude, room, description } = req.body;
+    const {
+      name,
+      address,
+      city,
+      state,
+      country,
+      zipCode,
+      pricePerNight,
+      rating,
+      amenities,
+      facilities,
+      latitude,
+      longitude,
+      room,
+      description,
+    } = req.body;
     const owner = req.user.id;
 
-    if (!name || !address || !city || !state || !country || !zipCode || !pricePerNight || !latitude || !longitude || !room) {
-      return res.status(400).json({ message: "All required fields must be provided.", status: false });
+    if (
+      !name ||
+      !address ||
+      !city ||
+      !state ||
+      !country ||
+      !zipCode ||
+      !pricePerNight ||
+      !latitude ||
+      !longitude ||
+      !room
+    ) {
+      return res.status(400).json({
+        message: "All required fields must be provided.",
+        status: false,
+      });
     }
 
-    const imageUrls = req.files.map((file) => file.path.split(path.sep).join("/"));
+    const imageUrls = req.files.map((file) =>
+      file.path.split(path.sep).join("/")
+    );
 
     const newHotel = new Hotel({
       name,
@@ -154,6 +213,7 @@ export const addHotel = async (req, res) => {
       description,
       rating: rating || 0,
       amenities: amenities ? amenities.split(",") : [],
+      facilities: facilities ? facilities.split(",") : [],
       images: imageUrls,
       latitude,
       longitude,
@@ -161,7 +221,11 @@ export const addHotel = async (req, res) => {
     });
 
     await newHotel.save();
-    res.status(200).json({ message: "Hotel added successfully!", hotel: newHotel, status: true });
+    res.status(200).json({
+      message: "Hotel added successfully!",
+      hotel: newHotel,
+      status: true,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -169,7 +233,23 @@ export const addHotel = async (req, res) => {
 
 export const updateHotel = async (req, res) => {
   try {
-    const { name, address, city, state, country, zipCode, pricePerNight, rating, amenities, latitude, longitude, hotelId, room, description } = req.body;
+    const {
+      name,
+      address,
+      city,
+      state,
+      country,
+      zipCode,
+      pricePerNight,
+      rating,
+      amenities,
+      facilities,
+      latitude,
+      longitude,
+      hotelId,
+      room,
+      description,
+    } = req.body;
     const owner = req.user.id;
 
     if (!hotelId) {
@@ -184,7 +264,9 @@ export const updateHotel = async (req, res) => {
     }
 
     if (hotel.owner.toString() !== owner) {
-      return res.status(403).json({ message: "You are not authorized to update this hotel." });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to update this hotel." });
     }
 
     // Update the fields if provided
@@ -199,6 +281,7 @@ export const updateHotel = async (req, res) => {
     hotel.description = description || hotel.description;
     hotel.rating = rating || hotel.rating;
     hotel.amenities = amenities ? amenities.split(",") : hotel.amenities;
+    hotel.facilities = facilities ? facilities.split(",") : hotel.facilities;
     hotel.latitude = latitude || hotel.latitude;
     hotel.longitude = longitude || hotel.longitude;
 
@@ -209,7 +292,7 @@ export const updateHotel = async (req, res) => {
         const __dirname = path.dirname(__filename);
 
         for (const oldImage of hotel.images) {
-          const oldImagePath = path.join(__dirname, '..', oldImage); // Assuming images are stored in the root "images" folder
+          const oldImagePath = path.join(__dirname, "..", oldImage); // Assuming images are stored in the root "images" folder
           fs.unlink(oldImagePath, (err) => {
             if (err) console.error("Error deleting old image:", err);
           });
@@ -217,7 +300,9 @@ export const updateHotel = async (req, res) => {
       }
 
       // Update with new images
-      const imageUrls = req.files.map((file) => file.path.split(path.sep).join("/"));
+      const imageUrls = req.files.map((file) =>
+        file.path.split(path.sep).join("/")
+      );
       hotel.images = imageUrls;
     }
 
@@ -232,7 +317,7 @@ export const updateHotel = async (req, res) => {
 
 export const getByHotelId = async (req, res) => {
   try {
-    const {hotelId} = req.query;
+    const { hotelId } = req.query;
 
     if (!hotelId) {
       return res.status(400).json({ message: "Hotel ID is required." });
@@ -244,7 +329,9 @@ export const getByHotelId = async (req, res) => {
       return res.status(404).json({ message: "Hotel not found." });
     }
 
-    res.status(200).json({ message: "Get hotel successfully", status: true, hotel });
+    res
+      .status(200)
+      .json({ message: "Get hotel successfully", status: true, hotel });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -256,10 +343,14 @@ export const getHotelsByOwnerId = async (req, res) => {
     const hotels = await Hotel.find({ owner: ownerId });
 
     if (hotels.length === 0) {
-      return res.status(404).json({ message: "No hotels found for this owner." });
+      return res
+        .status(404)
+        .json({ message: "No hotels found for this owner." });
     }
 
-    res.status(200).json({ message: "Get hotels successfully", status: true, hotels });
+    res
+      .status(200)
+      .json({ message: "Get hotels successfully", status: true, hotels });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -267,23 +358,30 @@ export const getHotelsByOwnerId = async (req, res) => {
 
 export const deleteHotel = async (req, res) => {
   try {
-    const {hotelId} = req.body;
+    const { hotelId } = req.body;
     const owner = req.user.id;
 
     if (!hotelId) {
-      return res.status(400).json({ message: "Hotel ID is required.", status: false });
+      return res
+        .status(400)
+        .json({ message: "Hotel ID is required.", status: false });
     }
 
     // Find the hotel by ID
     const hotel = await Hotel.findById(hotelId);
 
     if (!hotel) {
-      return res.status(404).json({ message: "Hotel not found.", status: false });
+      return res
+        .status(404)
+        .json({ message: "Hotel not found.", status: false });
     }
 
     // Check if the logged-in user is the owner of the hotel
     if (hotel.owner.toString() !== owner) {
-      return res.status(403).json({ message: "You are not authorized to delete this hotel.", status: false });
+      return res.status(403).json({
+        message: "You are not authorized to delete this hotel.",
+        status: false,
+      });
     }
 
     // Delete the old images associated with the hotel
@@ -292,7 +390,7 @@ export const deleteHotel = async (req, res) => {
       const __dirname = path.dirname(__filename);
 
       for (const oldImage of hotel.images) {
-        const oldImagePath = path.join(__dirname, '..', oldImage);  // Assuming images are stored in the root "images" folder
+        const oldImagePath = path.join(__dirname, "..", oldImage); // Assuming images are stored in the root "images" folder
         fs.unlink(oldImagePath, (err) => {
           if (err) console.error("Error deleting old image:", err);
         });
@@ -302,13 +400,13 @@ export const deleteHotel = async (req, res) => {
     // Delete the hotel
     await Hotel.deleteOne({ _id: hotelId });
 
-    res.status(200).json({ message: "Hotel deleted successfully!", status: true });
+    res
+      .status(200)
+      .json({ message: "Hotel deleted successfully!", status: true });
   } catch (error) {
     console.error("Error deleting hotel:", error);
-    res.status(500).json({ message: "Server error", error: error.message, status: false });
+    res
+      .status(500)
+      .json({ message: "Server error", error: error.message, status: false });
   }
 };
-
-
-
-

@@ -6,7 +6,6 @@ const policySchema = new mongoose.Schema(
       type: String,
       enum: ["about", "terms", "privacy"],
       required: true,
-      unique: true,
     },
     content: {
       type: String,

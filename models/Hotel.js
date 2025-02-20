@@ -13,6 +13,7 @@ const hotelSchema = new mongoose.Schema(
     room: {type: Number, default: 0, required: true},
     description: { type: String },
     amenities: [{ type: String }],
+    facilities: [{ type: String }],
     images: [{ type: String }],
     isAvailable: { type: Boolean, default: true },
     latitude: { type: Number, required: true },

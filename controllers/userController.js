@@ -7,6 +7,9 @@ import { fileURLToPath } from "url";
 import RatingReview from "../models/RatingReview.js";
 import Booking from "../models/Booking.js";
 import Favorite from "../models/Favorite.js";
+import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
+import mongoose from "mongoose";
+
 
 const MAX_ADVANCE_BOOKING_DAYS = 180;
 
@@ -259,9 +262,8 @@ export const getBookingByUser = async (req, res) => {
 
 export const getAllHotelsForApp = async (req, res) => {
   try {
-    const {userId} = req.user.id;
+    const { userId } = req.user.id;
     console.log(userId);
-    
 
     // Fetch all hotels
     const hotels = await Hotel.find();
@@ -299,7 +301,7 @@ export const getAllHotelsForApp = async (req, res) => {
 
 export const getAllHotelsForWeb = async (req, res) => {
   try {
-    const {userId} = req.query;
+    const { userId } = req.query;
     // Fetch all hotels
     const hotels = await Hotel.find();
 
@@ -516,20 +518,169 @@ export const getFavorites = async (req, res) => {
     const favorites = await Favorite.find({ user: userId }).populate("hotel");
 
     if (!favorites.length) {
-      return res.status(404).json({ 
-        message: "No favorite hotels found", 
-        status: false, 
-        favorites: [] 
+      return res.status(404).json({
+        message: "No favorite hotels found",
+        status: false,
+        favorites: [],
       });
     }
 
     res.status(200).json({
       message: "Favorite hotels retrieved successfully",
       status: true,
-      favorites
+      favorites,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const updateHotelOwnerPolicy = async (req, res) => {
+  try {
+    let hotelOwnerId = req.user.id;
+    const { type, content, hotelId } = req.body;
+
+    // Validate required fields
+    if (!type || !content || !hotelId) {
+      return res.status(400).json({ 
+        message: "All fields (type, content, hotelId) are required", 
+        status: false 
+      });
+    }
+
+    // Ensure `hotelId` is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+      return res.status(400).json({
+        message: "Invalid hotelId format",
+        status: false,
+      });
+    }
+
+    let hotelOwnerPolicy = await HotelOwnerPolicy.findOne({
+      hotelOwnerId,
+      hotelId,
+      type,
+    });
+
+    if (hotelOwnerPolicy) {
+      hotelOwnerPolicy.content = content;
+      await hotelOwnerPolicy.save();
+      return res.status(200).json({
+        message: "Hotel owner policy updated successfully",
+        status: true,
+        hotelOwnerPolicy,
+      });
+    } else {
+      hotelOwnerPolicy = new HotelOwnerPolicy({ hotelOwnerId, hotelId, type, content });
+      await hotelOwnerPolicy.save();
+      return res.status(201).json({
+        message: "Hotel owner policy created successfully",
+        status: true,
+        hotelOwnerPolicy,
+      });
+    }
+  } catch (error) {
+    console.error("Error updating hotel owner policy:", error);
+    res.status(500).json({
+      message: "Internal server error. Please try again later.",
+      status: false,
+      error: error.message,
+    });
+  }
+};
+
+export const getHotelOwnerPolicyById = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized access. User ID is missing.",
+      });
+    }
+
+    const { hotelId } = req.query;
+    const hotelOwnerId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid hotelId format",
+      });
+    }
+
+    const hotelOwnerPolicy = await HotelOwnerPolicy.find({ hotelOwnerId, hotelId });
+
+    if (!hotelOwnerPolicy || hotelOwnerPolicy.length === 0) {
+      return res.status(404).json({
+        status: false,
+        message: "No policies found for this hotel and owner.",
+      });
+    }
+
+    res.status(200).json({ status: true, data: hotelOwnerPolicy });
+
+  } catch (error) {
+    console.error("Error fetching hotel owner policy:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error. Please try again later.",
+      error: error.message,
+    });
+  }
+};
+
+export const getSimilarHotels = async (req, res) => {
+  try {
+    const { hotelId } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid hotelId format",
+      });
+    }
+
+    const currentHotel = await Hotel.findById(hotelId);
+    if (!currentHotel) {
+      return res.status(404).json({
+        status: false,
+        message: "Hotel not found",
+      });
+    }
+
+    // Find similar hotels based on location, price range, and amenities
+    const similarHotels = await Hotel.find({
+      _id: { $ne: hotelId },
+      city: currentHotel.city,
+      pricePerNight: { 
+        $gte: currentHotel.pricePerNight * 0.8,
+        $lte: currentHotel.pricePerNight * 1.2,
+      },
+      amenities: { $in: currentHotel.amenities },
+    }).limit(10);
+
+    if (!similarHotels.length) {
+      return res.status(404).json({
+        status: false,
+        message: "No similar hotels found.",
+      });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Similar hotels retrieved successfully",
+      hotels: similarHotels,
+    });
+
+  } catch (error) {
+    console.error("Error fetching similar hotels:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error. Please try again later.",
+      error: error.message,
+    });
+  }
+};
+
+
 
