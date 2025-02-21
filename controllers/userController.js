@@ -87,13 +87,13 @@ export const getReviewsByHotelId = async (req, res) => {
 
 export const bookHotel = async (req, res) => {
   try {
-    const { hotelId, checkInDate, checkOutDate, room } = req.body;
+    const { hotelId, checkInDate, checkOutDate, room, adults, children } = req.body;
     const userId = req.user.id;
 
-    if (!hotelId || !checkInDate || !checkOutDate || !room) {
+    if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
       return res
         .status(400)
-        .json({ message: "All fields are required", status: false });
+        .json({ message: "All fields are required (adults cannot be zero)", status: false });
     }
 
     const hotel = await Hotel.findById(hotelId);
@@ -125,7 +125,7 @@ export const bookHotel = async (req, res) => {
 
     // Restrict advance bookings beyond 6 months
     const maxAdvanceDate = new Date();
-    maxAdvanceDate.setDate(maxAdvanceDate.getDate() + MAX_ADVANCE_BOOKING_DAYS);
+    maxAdvanceDate.setMonth(maxAdvanceDate.getMonth() + 6); // 6 months ahead
     if (checkIn > maxAdvanceDate) {
       return res.status(400).json({
         message: "Bookings cannot be made more than 6 months in advance.",
@@ -158,6 +158,8 @@ export const bookHotel = async (req, res) => {
       user: userId,
       hotel: hotelId,
       room,
+      adults,
+      children: children || 0, // Default to 0 if not provided
       checkInDate: checkIn,
       checkOutDate: checkOut,
       totalPrice,
@@ -262,8 +264,7 @@ export const getBookingByUser = async (req, res) => {
 
 export const getAllHotelsForApp = async (req, res) => {
   try {
-    const { userId } = req.user.id;
-    console.log(userId);
+    const userId = req.user?.id;
 
     // Fetch all hotels
     const hotels = await Hotel.find();
@@ -274,7 +275,23 @@ export const getAllHotelsForApp = async (req, res) => {
         .json({ message: "No hotels found", status: false });
     }
 
-    let updatedHotels = hotels;
+    // Get review count for each hotel
+    const hotelIds = hotels.map((hotel) => hotel._id);
+    const reviewCounts = await RatingReview.aggregate([
+      { $match: { hotel: { $in: hotelIds } } },
+      { $group: { _id: "$hotel", count: { $sum: 1 } } },
+    ]);
+
+    // Convert reviewCounts array to an object for quick lookup
+    const reviewCountMap = reviewCounts.reduce((acc, cur) => {
+      acc[cur._id.toString()] = cur.count;
+      return acc;
+    }, {});
+
+    let updatedHotels = hotels.map((hotel) => ({
+      ...hotel._doc,
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0, // Default to 0 if no reviews
+    }));
 
     // If user is authenticated, check favorites
     if (userId) {
@@ -283,8 +300,8 @@ export const getAllHotelsForApp = async (req, res) => {
       );
       const favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
 
-      updatedHotels = hotels.map((hotel) => ({
-        ...hotel._doc,
+      updatedHotels = updatedHotels.map((hotel) => ({
+        ...hotel,
         isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
       }));
     }
@@ -350,9 +367,14 @@ export const getHotelById = async (req, res) => {
       return res.status(404).json({ message: "Hotel not found." });
     }
 
-    res
-      .status(200)
-      .json({ message: "Get hotel successfully", status: true, hotel });
+    // Get review count for the hotel
+    const reviewCount = await RatingReview.countDocuments({ hotel: hotelId });
+
+    res.status(200).json({
+      message: "Get hotel successfully",
+      status: true,
+      hotel: { ...hotel._doc, reviewCount },
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -679,10 +701,28 @@ export const getSimilarHotels = async (req, res) => {
       });
     }
 
+    // Get review counts for similar hotels
+    const hotelIds = similarHotels.map((hotel) => hotel._id);
+    const reviewCounts = await RatingReview.aggregate([
+      { $match: { hotel: { $in: hotelIds } } },
+      { $group: { _id: "$hotel", count: { $sum: 1 } } },
+    ]);
+
+    // Convert reviewCounts array to an object for quick lookup
+    const reviewCountMap = reviewCounts.reduce((acc, cur) => {
+      acc[cur._id.toString()] = cur.count;
+      return acc;
+    }, {});
+
+    const updatedHotels = similarHotels.map((hotel) => ({
+      ...hotel._doc,
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0, // Default to 0 if no reviews
+    }));
+
     res.status(200).json({
       status: true,
       message: "Similar hotels retrieved successfully",
-      hotels: similarHotels,
+      hotels: updatedHotels,
     });
 
   } catch (error) {

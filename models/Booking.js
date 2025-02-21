@@ -16,6 +16,16 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    adults: {
+      type: Number,
+      required: true,
+      min: 1, // At least one adult must be present
+    },
+    children: {
+      type: Number,
+      required: true,
+      default: 0, // Default to 0 if not provided
+    },
     checkInDate: {
       type: Date,
       required: true,
