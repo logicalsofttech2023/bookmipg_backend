@@ -542,9 +542,9 @@ export const updateHotelOwnerPolicy = async (req, res) => {
 
     // Validate required fields
     if (!type || !content || !hotelId) {
-      return res.status(400).json({ 
-        message: "All fields (type, content, hotelId) are required", 
-        status: false 
+      return res.status(400).json({
+        message: "All fields (type, content, hotelId) are required",
+        status: false,
       });
     }
 
@@ -552,6 +552,14 @@ export const updateHotelOwnerPolicy = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(hotelId)) {
       return res.status(400).json({
         message: "Invalid hotelId format",
+        status: false,
+      });
+    }
+
+    // Ensure `content` is an array
+    if (!Array.isArray(content) || content.length === 0) {
+      return res.status(400).json({
+        message: "Content must be a non-empty array of points",
         status: false,
       });
     }
@@ -571,7 +579,12 @@ export const updateHotelOwnerPolicy = async (req, res) => {
         hotelOwnerPolicy,
       });
     } else {
-      hotelOwnerPolicy = new HotelOwnerPolicy({ hotelOwnerId, hotelId, type, content });
+      hotelOwnerPolicy = new HotelOwnerPolicy({
+        hotelOwnerId,
+        hotelId,
+        type,
+        content,
+      });
       await hotelOwnerPolicy.save();
       return res.status(201).json({
         message: "Hotel owner policy created successfully",
