@@ -14,8 +14,9 @@ import {
   removeFavorite,
   getFavorites,
   updateHotelOwnerPolicy,
-  getHotelOwnerPolicyById,
-  getSimilarHotels
+  getHotelOwnerPolicyByOwnerId,
+  getSimilarHotels,
+  getHotelOwnerPolicyById
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadRating, uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -54,9 +55,11 @@ router.get("/getAllHotelsByFilter", getAllHotelsByFilter);
 
 router.post("/updateHotelOwnerPolicy",authMiddleware, updateHotelOwnerPolicy);
 
-router.get("/getHotelOwnerPolicyById",authMiddleware, getHotelOwnerPolicyById);
+router.get("/getHotelOwnerPolicyByOwnerId",authMiddleware, getHotelOwnerPolicyByOwnerId);
 
 router.get("/getSimilarHotels",authMiddleware, getSimilarHotels);
+
+router.get("/getHotelOwnerPolicyById", getHotelOwnerPolicyById);
 
 
 

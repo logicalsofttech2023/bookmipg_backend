@@ -589,7 +589,7 @@ export const updateHotelOwnerPolicy = async (req, res) => {
   }
 };
 
-export const getHotelOwnerPolicyById = async (req, res) => {
+export const getHotelOwnerPolicyByOwnerId = async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
@@ -674,6 +674,37 @@ export const getSimilarHotels = async (req, res) => {
 
   } catch (error) {
     console.error("Error fetching similar hotels:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error. Please try again later.",
+      error: error.message,
+    });
+  }
+};
+
+export const getHotelOwnerPolicyById = async (req, res) => {
+  try {
+    const { hotelId } = req.query;
+    if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid hotelId format",
+      });
+    }
+
+    const hotelOwnerPolicy = await HotelOwnerPolicy.find({ hotelId });
+
+    if (!hotelOwnerPolicy || hotelOwnerPolicy.length === 0) {
+      return res.status(404).json({
+        status: false,
+        message: "No policies found for this hotel and owner.",
+      });
+    }
+
+    res.status(200).json({ status: true, data: hotelOwnerPolicy });
+
+  } catch (error) {
+    console.error("Error fetching hotel owner policy:", error);
     res.status(500).json({
       status: false,
       message: "Internal server error. Please try again later.",
