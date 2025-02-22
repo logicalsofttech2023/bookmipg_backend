@@ -9,6 +9,7 @@ import Booking from "../models/Booking.js";
 import Favorite from "../models/Favorite.js";
 import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
 import mongoose from "mongoose";
+import geolib from "geolib";
 
 
 const MAX_ADVANCE_BOOKING_DAYS = 180;
@@ -265,9 +266,10 @@ export const getBookingByUser = async (req, res) => {
 export const getAllHotelsForApp = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const { latitude, longitude, radius } = req.query;
 
     // Fetch all hotels
-    const hotels = await Hotel.find();
+    let hotels = await Hotel.find();
 
     if (!hotels.length) {
       return res
@@ -293,11 +295,20 @@ export const getAllHotelsForApp = async (req, res) => {
       reviewCount: reviewCountMap[hotel._id.toString()] || 0, // Default to 0 if no reviews
     }));
 
+    // If latitude, longitude, and radius are provided, filter hotels within radius
+    if (latitude && longitude && radius) {
+      updatedHotels = updatedHotels.filter((hotel) => {
+        const distance = geolib.getDistance(
+          { latitude, longitude },
+          { latitude: hotel.latitude, longitude: hotel.longitude }
+        );
+        return distance <= radius;
+      });
+    }
+
     // If user is authenticated, check favorites
     if (userId) {
-      const userFavorites = await Favorite.find({ user: userId }).select(
-        "hotel"
-      );
+      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
       const favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
 
       updatedHotels = updatedHotels.map((hotel) => ({
@@ -356,6 +367,7 @@ export const getAllHotelsForWeb = async (req, res) => {
 export const getHotelById = async (req, res) => {
   try {
     const { hotelId } = req.query;
+    const userId = req.user?.id;
 
     if (!hotelId) {
       return res.status(400).json({ message: "Hotel ID is required." });
@@ -370,10 +382,17 @@ export const getHotelById = async (req, res) => {
     // Get review count for the hotel
     const reviewCount = await RatingReview.countDocuments({ hotel: hotelId });
 
+    // Check if the hotel is in user's favorites
+    let isFavorite = false;
+    if (userId) {
+      const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
+      isFavorite = !!favorite;
+    }
+
     res.status(200).json({
       message: "Get hotel successfully",
       status: true,
-      hotel: { ...hotel._doc, reviewCount },
+      hotel: { ...hotel._doc, reviewCount, isFavorite },
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -547,10 +566,18 @@ export const getFavorites = async (req, res) => {
       });
     }
 
+    // Add review count to each favorite hotel
+    const updatedFavorites = await Promise.all(
+      favorites.map(async (fav) => {
+        const reviewCount = await RatingReview.countDocuments({ hotel: fav.hotel._id });
+        return { ...fav._doc, hotel: { ...fav.hotel._doc, reviewCount } };
+      })
+    );
+
     res.status(200).json({
       message: "Favorite hotels retrieved successfully",
       status: true,
-      favorites,
+      favorites: updatedFavorites,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -765,6 +792,175 @@ export const getHotelOwnerPolicyById = async (req, res) => {
     });
   }
 };
+
+export const getNearbyHotels = async (req, res) => {
+  try {
+    const { latitude, longitude, radius = 5000 } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        message: "Latitude and longitude are required",
+        status: false,
+      });
+    }
+
+    // Fetch all hotels from the database
+    const hotels = await Hotel.find();
+
+    // Filter hotels within the given radius
+    const nearbyHotels = hotels.filter((hotel) => {
+      const distance = geolib.getDistance(
+        { latitude, longitude },
+        { latitude: hotel.latitude, longitude: hotel.longitude }
+      );
+      console.log(distance);
+      
+      return distance <= radius;
+    });
+
+    if (nearbyHotels <= 0) {
+      res.status(200).json({
+        message: "Nearby hotels Not found",
+        status: false,
+      });
+    }
+    else{
+      res.status(200).json({
+        message: "Nearby hotels retrieved successfully",
+        status: true,
+        hotels: nearbyHotels,
+      });
+    }
+
+    
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getRecommendedHotelsForWeb = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { latitude, longitude } = req.body;
+    let recommendedHotels = [];
+
+    // Fetch all hotels
+    let hotels = await Hotel.find();
+
+    // Get highly rated hotels
+    const topRatedHotels = await RatingReview.aggregate([
+      { $group: { _id: "$hotel", avgRating: { $avg: "$rating" }, reviewCount: { $sum: 1 } } },
+      { $sort: { avgRating: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const topRatedHotelIds = topRatedHotels.map(h => h._id.toString());
+    const reviewCountMap = topRatedHotels.reduce((acc, cur) => {
+      acc[cur._id.toString()] = cur.reviewCount;
+      return acc;
+    }, {});
+
+    // Fetch user favorites if authenticated
+    let favoriteHotelIds = [];
+    if (userId) {
+      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
+      favoriteHotelIds = userFavorites.map(fav => fav.hotel.toString());
+    }
+
+    // Sort hotels based on priority: favorites, top-rated, then proximity
+    recommendedHotels = hotels.map(hotel => ({
+      ...hotel._doc,
+      isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
+      // isTopRated: topRatedHotelIds.includes(hotel._id.toString()),
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0
+    }));
+
+    // If latitude and longitude are provided, sort by proximity
+    if (latitude && longitude) {
+      recommendedHotels = recommendedHotels.sort((a, b) => {
+        const distanceA = geolib.getDistance(
+          { latitude, longitude },
+          { latitude: a.latitude, longitude: a.longitude }
+        );
+        const distanceB = geolib.getDistance(
+          { latitude, longitude },
+          { latitude: b.latitude, longitude: b.longitude }
+        );
+        return distanceA - distanceB;
+      });
+    }
+
+    res.status(200).json({
+      message: "Recommended hotels retrieved successfully",
+      status: true,
+      hotels: recommendedHotels,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getTrendingHotels = async (req, res) => {
+  try {
+    // Fetch hotels sorted by highest number of reviews in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const trendingHotelsByReviews = await RatingReview.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: "$hotel", reviewCount: { $sum: 1 } } },
+      { $sort: { reviewCount: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Fetch hotels sorted by highest number of bookings in the last 30 days
+    const trendingHotelsByBookings = await Booking.aggregate([
+      { $match: { checkInDate: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: "$hotel", bookingCount: { $sum: 1 } } },
+      { $sort: { bookingCount: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const hotelIds = [
+      ...new Set([
+        ...trendingHotelsByReviews.map(h => h._id.toString()),
+        ...trendingHotelsByBookings.map(h => h._id.toString())
+      ])
+    ];
+
+    const hotels = await Hotel.find({ _id: { $in: hotelIds } });
+
+    // Fetch user favorites if authenticated
+    const userId = req.user?.id;
+    let favoriteHotelIds = [];
+    if (userId) {
+      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
+      favoriteHotelIds = userFavorites.map(fav => fav.hotel.toString());
+    }
+
+    // Map review counts
+    const reviewCountMap = trendingHotelsByReviews.reduce((acc, cur) => {
+      acc[cur._id.toString()] = cur.reviewCount;
+      return acc;
+    }, {});
+
+    const updatedHotels = hotels.map(hotel => ({
+      ...hotel._doc,
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0,
+      isFavorite: favoriteHotelIds.includes(hotel._id.toString())
+    }));
+
+    res.status(200).json({
+      message: "Trending hotels retrieved successfully",
+      status: true,
+      hotels: updatedHotels,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 
 
 
