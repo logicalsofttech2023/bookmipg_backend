@@ -198,22 +198,33 @@ export const getBookingByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Fetch user bookings with hotel details
     const bookings = await Booking.find({ user: userId })
-    .populate("hotel")
-    .populate({
-      path: "ownerId",
-      select: "phone",
-    });
-  
+      .populate("hotel")
+      .populate({
+        path: "ownerId",
+        select: "phone",
+      });
+
     if (!bookings.length) {
-      return res
-        .status(404)
-        .json({ message: "No bookings found", status: false });
+      return res.status(404).json({ message: "No bookings found", status: false });
     }
+
+    // Fetch hotel policies based on hotelId
+    const bookingsWithPolicies = await Promise.all(
+      bookings.map(async (booking) => {
+        const policy = await HotelOwnerPolicy.findOne({ hotelId: booking.hotel._id });
+
+        return {
+          ...booking.toObject(),
+          hotelOwnerPolicy: policy ? policy.content : [], // Include policy content if found
+        };
+      })
+    );
 
     res.status(200).json({
       message: "Bookings retrieved successfully",
-      bookings,
+      bookings: bookingsWithPolicies,
       status: true,
     });
   } catch (error) {
