@@ -10,7 +10,7 @@ import Favorite from "../models/Favorite.js";
 import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
 import mongoose from "mongoose";
 import geolib from "geolib";
-
+import { v4 as uuidv4 } from "uuid";
 
 const MAX_ADVANCE_BOOKING_DAYS = 180;
 
@@ -88,13 +88,30 @@ export const getReviewsByHotelId = async (req, res) => {
 
 export const bookHotel = async (req, res) => {
   try {
-    const { hotelId, checkInDate, checkOutDate, room, adults, children } = req.body;
+    const {
+      hotelId,
+      checkInDate,
+      checkOutDate,
+      room,
+      adults,
+      children,
+      name,
+      number,
+      countryCode,
+    } = req.body;
     const userId = req.user.id;
 
-    if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
-      return res
-        .status(400)
-        .json({ message: "All fields are required (adults cannot be zero)", status: false });
+    if (
+      !hotelId ||
+      !checkInDate ||
+      !checkOutDate ||
+      !room ||
+      !adults
+    ) {
+      return res.status(400).json({
+        message: "All fields are required (adults cannot be zero)",
+        status: false,
+      });
     }
 
     const hotel = await Hotel.findById(hotelId);
@@ -104,12 +121,12 @@ export const bookHotel = async (req, res) => {
         .json({ message: "Hotel not found", status: false });
     }
 
-    // Convert dates to proper format
+    const ownerId = hotel.owner;
+
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
     const today = new Date();
 
-    // Validate check-in and check-out dates
     if (checkIn < today) {
       return res.status(400).json({
         message: "Check-in date must be in the future.",
@@ -124,9 +141,8 @@ export const bookHotel = async (req, res) => {
       });
     }
 
-    // Restrict advance bookings beyond 6 months
     const maxAdvanceDate = new Date();
-    maxAdvanceDate.setMonth(maxAdvanceDate.getMonth() + 6); // 6 months ahead
+    maxAdvanceDate.setMonth(maxAdvanceDate.getMonth() + 6);
     if (checkIn > maxAdvanceDate) {
       return res.status(400).json({
         message: "Bookings cannot be made more than 6 months in advance.",
@@ -134,13 +150,10 @@ export const bookHotel = async (req, res) => {
       });
     }
 
-    // Check if the room is already booked during the selected period
     const existingBooking = await Booking.findOne({
       hotel: hotelId,
       room,
-      $or: [
-        { checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }, // Overlapping booking
-      ],
+      $or: [{ checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }],
     });
 
     if (existingBooking) {
@@ -150,20 +163,26 @@ export const bookHotel = async (req, res) => {
       });
     }
 
-    // Calculate total price
     const nights = (checkOut - checkIn) / (1000 * 60 * 60 * 24);
     const totalPrice = hotel.pricePerNight * nights;
 
-    // Create new booking
+    // Generate a unique booking ID like "W9656870"
+    const bookingId = `W${Math.floor(1000000 + Math.random() * 9000000)}`;
+
     const newBooking = new Booking({
       user: userId,
+      ownerId,
       hotel: hotelId,
       room,
       adults,
-      children: children || 0, // Default to 0 if not provided
+      children: children || 0,
       checkInDate: checkIn,
       checkOutDate: checkOut,
       totalPrice,
+      name,
+      number,
+      countryCode,
+      bookingId,
     });
 
     await newBooking.save();
@@ -241,11 +260,11 @@ export const updateBookingStatus = async (req, res) => {
   }
 };
 
-export const getBookingByUser = async (req, res) => {
+export const getBookingByOwnerId = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const ownerId = req.user.id;
 
-    const bookings = await Booking.find({ user: userId }).populate("hotel");
+    const bookings = await Booking.find({ ownerId: ownerId }).populate("hotel");
 
     if (!bookings.length) {
       return res
@@ -308,7 +327,9 @@ export const getAllHotelsForApp = async (req, res) => {
 
     // If user is authenticated, check favorites
     if (userId) {
-      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
+      const userFavorites = await Favorite.find({ user: userId }).select(
+        "hotel"
+      );
       const favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
 
       updatedHotels = updatedHotels.map((hotel) => ({
@@ -569,7 +590,9 @@ export const getFavorites = async (req, res) => {
     // Add review count to each favorite hotel
     const updatedFavorites = await Promise.all(
       favorites.map(async (fav) => {
-        const reviewCount = await RatingReview.countDocuments({ hotel: fav.hotel._id });
+        const reviewCount = await RatingReview.countDocuments({
+          hotel: fav.hotel._id,
+        });
         return { ...fav._doc, hotel: { ...fav.hotel._doc, reviewCount } };
       })
     );
@@ -670,7 +693,10 @@ export const getHotelOwnerPolicyByOwnerId = async (req, res) => {
       });
     }
 
-    const hotelOwnerPolicy = await HotelOwnerPolicy.find({ hotelOwnerId, hotelId });
+    const hotelOwnerPolicy = await HotelOwnerPolicy.find({
+      hotelOwnerId,
+      hotelId,
+    });
 
     if (!hotelOwnerPolicy || hotelOwnerPolicy.length === 0) {
       return res.status(404).json({
@@ -680,7 +706,6 @@ export const getHotelOwnerPolicyByOwnerId = async (req, res) => {
     }
 
     res.status(200).json({ status: true, data: hotelOwnerPolicy });
-
   } catch (error) {
     console.error("Error fetching hotel owner policy:", error);
     res.status(500).json({
@@ -714,7 +739,7 @@ export const getSimilarHotels = async (req, res) => {
     const similarHotels = await Hotel.find({
       _id: { $ne: hotelId },
       city: currentHotel.city,
-      pricePerNight: { 
+      pricePerNight: {
         $gte: currentHotel.pricePerNight * 0.8,
         $lte: currentHotel.pricePerNight * 1.2,
       },
@@ -751,7 +776,6 @@ export const getSimilarHotels = async (req, res) => {
       message: "Similar hotels retrieved successfully",
       hotels: updatedHotels,
     });
-
   } catch (error) {
     console.error("Error fetching similar hotels:", error);
     res.status(500).json({
@@ -782,7 +806,6 @@ export const getHotelOwnerPolicyById = async (req, res) => {
     }
 
     res.status(200).json({ status: true, data: hotelOwnerPolicy });
-
   } catch (error) {
     console.error("Error fetching hotel owner policy:", error);
     res.status(500).json({
@@ -814,7 +837,7 @@ export const getNearbyHotels = async (req, res) => {
         { latitude: hotel.latitude, longitude: hotel.longitude }
       );
       console.log(distance);
-      
+
       return distance <= radius;
     });
 
@@ -823,16 +846,13 @@ export const getNearbyHotels = async (req, res) => {
         message: "Nearby hotels Not found",
         status: false,
       });
-    }
-    else{
+    } else {
       res.status(200).json({
         message: "Nearby hotels retrieved successfully",
         status: true,
         hotels: nearbyHotels,
       });
     }
-
-    
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -849,12 +869,18 @@ export const getRecommendedHotelsForWeb = async (req, res) => {
 
     // Get highly rated hotels
     const topRatedHotels = await RatingReview.aggregate([
-      { $group: { _id: "$hotel", avgRating: { $avg: "$rating" }, reviewCount: { $sum: 1 } } },
+      {
+        $group: {
+          _id: "$hotel",
+          avgRating: { $avg: "$rating" },
+          reviewCount: { $sum: 1 },
+        },
+      },
       { $sort: { avgRating: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
-    const topRatedHotelIds = topRatedHotels.map(h => h._id.toString());
+    const topRatedHotelIds = topRatedHotels.map((h) => h._id.toString());
     const reviewCountMap = topRatedHotels.reduce((acc, cur) => {
       acc[cur._id.toString()] = cur.reviewCount;
       return acc;
@@ -863,16 +889,18 @@ export const getRecommendedHotelsForWeb = async (req, res) => {
     // Fetch user favorites if authenticated
     let favoriteHotelIds = [];
     if (userId) {
-      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
-      favoriteHotelIds = userFavorites.map(fav => fav.hotel.toString());
+      const userFavorites = await Favorite.find({ user: userId }).select(
+        "hotel"
+      );
+      favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
     }
 
     // Sort hotels based on priority: favorites, top-rated, then proximity
-    recommendedHotels = hotels.map(hotel => ({
+    recommendedHotels = hotels.map((hotel) => ({
       ...hotel._doc,
       isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
       // isTopRated: topRatedHotelIds.includes(hotel._id.toString()),
-      reviewCount: reviewCountMap[hotel._id.toString()] || 0
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0,
     }));
 
     // If latitude and longitude are provided, sort by proximity
@@ -910,7 +938,7 @@ export const getTrendingHotels = async (req, res) => {
       { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       { $group: { _id: "$hotel", reviewCount: { $sum: 1 } } },
       { $sort: { reviewCount: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     // Fetch hotels sorted by highest number of bookings in the last 30 days
@@ -918,14 +946,14 @@ export const getTrendingHotels = async (req, res) => {
       { $match: { checkInDate: { $gte: thirtyDaysAgo } } },
       { $group: { _id: "$hotel", bookingCount: { $sum: 1 } } },
       { $sort: { bookingCount: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     const hotelIds = [
       ...new Set([
-        ...trendingHotelsByReviews.map(h => h._id.toString()),
-        ...trendingHotelsByBookings.map(h => h._id.toString())
-      ])
+        ...trendingHotelsByReviews.map((h) => h._id.toString()),
+        ...trendingHotelsByBookings.map((h) => h._id.toString()),
+      ]),
     ];
 
     const hotels = await Hotel.find({ _id: { $in: hotelIds } });
@@ -934,8 +962,10 @@ export const getTrendingHotels = async (req, res) => {
     const userId = req.user?.id;
     let favoriteHotelIds = [];
     if (userId) {
-      const userFavorites = await Favorite.find({ user: userId }).select("hotel");
-      favoriteHotelIds = userFavorites.map(fav => fav.hotel.toString());
+      const userFavorites = await Favorite.find({ user: userId }).select(
+        "hotel"
+      );
+      favoriteHotelIds = userFavorites.map((fav) => fav.hotel.toString());
     }
 
     // Map review counts
@@ -944,10 +974,10 @@ export const getTrendingHotels = async (req, res) => {
       return acc;
     }, {});
 
-    const updatedHotels = hotels.map(hotel => ({
+    const updatedHotels = hotels.map((hotel) => ({
       ...hotel._doc,
       reviewCount: reviewCountMap[hotel._id.toString()] || 0,
-      isFavorite: favoriteHotelIds.includes(hotel._id.toString())
+      isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
     }));
 
     res.status(200).json({
@@ -959,8 +989,3 @@ export const getTrendingHotels = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
-
-
-

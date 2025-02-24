@@ -249,27 +249,27 @@ export const updateHotel = async (req, res) => {
       hotelId,
       room,
       description,
+      existingImages, // ✅ Purani images ko preserve karne ke liye
     } = req.body;
+
     const owner = req.user.id;
 
     if (!hotelId) {
       return res.status(400).json({ message: "Hotel ID is required." });
     }
 
-    // Find the hotel by ID
+    // Hotel find karein
     const hotel = await Hotel.findById(hotelId);
-
     if (!hotel) {
       return res.status(404).json({ message: "Hotel not found." });
     }
 
+    // Check ownership
     if (hotel.owner.toString() !== owner) {
-      return res
-        .status(403)
-        .json({ message: "You are not authorized to update this hotel." });
+      return res.status(403).json({ message: "You are not authorized to update this hotel." });
     }
 
-    // Update the fields if provided
+    // ✅ Update fields if provided
     hotel.name = name || hotel.name;
     hotel.address = address || hotel.address;
     hotel.city = city || hotel.city;
@@ -285,32 +285,36 @@ export const updateHotel = async (req, res) => {
     hotel.latitude = latitude || hotel.latitude;
     hotel.longitude = longitude || hotel.longitude;
 
-    if (req.files) {
-      // Delete old images if any exist
-      if (hotel.images && hotel.images.length > 0) {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
+    // ✅ Preserve old images from frontend
+    let updatedImages = existingImages ? JSON.parse(existingImages) : hotel.images;
 
-        for (const oldImage of hotel.images) {
-          const oldImagePath = path.join(__dirname, "..", oldImage); // Assuming images are stored in the root "images" folder
+    if (req.files && req.files.length > 0) {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+
+      // ✅ Purani images delete sirf tab ho jab naye images upload ho
+      for (const oldImage of hotel.images) {
+        if (!updatedImages.includes(oldImage)) { // ✅ Agar old image nahi hai existing list me toh delete karo
+          const oldImagePath = path.join(__dirname, "..", oldImage);
           fs.unlink(oldImagePath, (err) => {
             if (err) console.error("Error deleting old image:", err);
           });
         }
       }
 
-      // Update with new images
-      const imageUrls = req.files.map((file) =>
-        file.path.split(path.sep).join("/")
-      );
-      hotel.images = imageUrls;
+      // ✅ Nayi images ko add karo
+      const newImageUrls = req.files.map((file) => file.path.split(path.sep).join("/"));
+      updatedImages = [...updatedImages, ...newImageUrls];
     }
 
-    // Save the updated hotel
+    hotel.images = updatedImages; // ✅ Purani aur nayi images ko store karo
+
+    // Save updated hotel
     await hotel.save();
 
     res.status(200).json({ message: "Hotel updated successfully!", hotel });
   } catch (error) {
+    console.error("Error in updateHotel:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -408,5 +412,54 @@ export const deleteHotel = async (req, res) => {
     res
       .status(500)
       .json({ message: "Server error", error: error.message, status: false });
+  }
+};
+
+export const deleteHotelImage = async (req, res) => {  
+  const owner = req.user.id;  
+  try {
+    const { hotelId, imageUrl } = req.body;        
+
+    if (!hotelId || !imageUrl) {
+      return res.status(400).json({ message: "Hotel ID and image URL are required." });
+    }
+
+    // Find the hotel by ID
+    const hotel = await Hotel.findById(hotelId);
+
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found." });
+    }
+
+    if (hotel.owner.toString() !== owner) {
+      return res.status(403).json({ message: "You are not authorized to delete this image." });
+    }
+
+    // Check if the image exists in the hotel record
+    const imageIndex = hotel.images.indexOf(imageUrl);
+    console.log(imageIndex);
+    
+    if (imageIndex === -1) {
+      return res.status(404).json({ message: "Image not found in this hotel." });
+    }
+
+    // Remove the image from the array
+    hotel.images.splice(imageIndex, 1);
+
+    // Delete the image from the server
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const imagePath = path.join(__dirname, "..", imageUrl);
+
+    fs.unlink(imagePath, (err) => {
+      if (err) console.error("Error deleting image:", err);
+    });
+
+    // Save the updated hotel document
+    await hotel.save();
+
+    res.status(200).json({ message: "Image deleted successfully!", hotel });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

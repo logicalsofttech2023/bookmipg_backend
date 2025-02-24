@@ -8,7 +8,8 @@ import {
   updateHotel,
   getByHotelId,
   getHotelsByOwnerId,
-  deleteHotel
+  deleteHotel,
+  deleteHotelImage
 } from "../controllers/adminController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -49,6 +50,9 @@ router.get("/getByHotelId", authMiddleware, getByHotelId);
 router.get("/getHotelsByOwnerId", authMiddleware, getHotelsByOwnerId);
 
 router.post("/deleteHotel", authMiddleware, roleMiddleware(["admin"]), deleteHotel);
+
+router.post("/deleteHotelImage", authMiddleware, deleteHotelImage);
+
 
 
 

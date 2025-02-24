@@ -7,6 +7,11 @@ const bookingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     hotel: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hotel",
@@ -19,12 +24,12 @@ const bookingSchema = new mongoose.Schema(
     adults: {
       type: Number,
       required: true,
-      min: 1, // At least one adult must be present
+      min: 1,
     },
     children: {
       type: Number,
       required: true,
-      default: 0, // Default to 0 if not provided
+      default: 0,
     },
     checkInDate: {
       type: Date,
@@ -40,8 +45,22 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled", "upcoming"],
+      enum: ["pending", "completed", "cancelled", "upcoming"],
       default: "pending",
+    },
+    name: {
+      type: String,
+    },
+    number: {
+      type: String,
+    },
+    countryCode: {
+      type: String,
+    },
+    bookingId: {
+      type: String,
+      unique: true,
+      required: true,
     },
   },
   { timestamps: true }
