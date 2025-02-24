@@ -10,9 +10,7 @@ import Favorite from "../models/Favorite.js";
 import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
 import mongoose from "mongoose";
 import geolib from "geolib";
-import { v4 as uuidv4 } from "uuid";
 
-const MAX_ADVANCE_BOOKING_DAYS = 180;
 
 export const addReview = async (req, res) => {
   try {
@@ -200,8 +198,13 @@ export const getBookingByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const bookings = await Booking.find({ user: userId }).populate("hotel");
-
+    const bookings = await Booking.find({ user: userId })
+    .populate("hotel")
+    .populate({
+      path: "ownerId",
+      select: "phone",
+    });
+  
     if (!bookings.length) {
       return res
         .status(404)
@@ -230,7 +233,7 @@ export const updateBookingStatus = async (req, res) => {
     }
 
     // Validate status value
-    const validStatuses = ["pending", "confirmed", "cancelled", "upcoming"];
+    const validStatuses = ["pending", "completed", "cancelled", "upcoming"];
     if (!validStatuses.includes(status)) {
       return res
         .status(400)
