@@ -170,7 +170,8 @@ export const addHotel = async (req, res) => {
       country,
       zipCode,
       pricePerNight,
-      discountedPrice,
+      originalPricePerNight,
+      taxesAmount,
       rating,
       amenities,
       facilities,
@@ -192,7 +193,8 @@ export const addHotel = async (req, res) => {
       !latitude ||
       !longitude ||
       !room ||
-      !discountedPrice
+      !originalPricePerNight ||
+      !taxesAmount
     ) {
       return res.status(400).json({
         message: "All required fields must be provided.",
@@ -212,7 +214,8 @@ export const addHotel = async (req, res) => {
       country,
       zipCode,
       pricePerNight,
-      discountedPrice,
+      originalPricePerNight,
+      taxesAmount,
       room,
       description,
       rating: rating || 0,
@@ -245,6 +248,8 @@ export const updateHotel = async (req, res) => {
       country,
       zipCode,
       pricePerNight,
+      originalPricePerNight,
+      taxesAmount,
       rating,
       amenities,
       facilities,
@@ -283,6 +288,8 @@ export const updateHotel = async (req, res) => {
     hotel.country = country || hotel.country;
     hotel.zipCode = zipCode || hotel.zipCode;
     hotel.pricePerNight = pricePerNight || hotel.pricePerNight;
+    hotel.originalPricePerNight = originalPricePerNight || hotel.originalPricePerNight;
+    hotel.taxesAmount = taxesAmount || hotel.taxesAmount;
     hotel.room = room || hotel.room;
     hotel.description = description || hotel.description;
     hotel.rating = rating || hotel.rating;

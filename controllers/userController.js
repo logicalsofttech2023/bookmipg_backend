@@ -191,9 +191,16 @@ export const bookHotel = async (req, res) => {
 export const getBookingByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { status } = req.query;    
+
+    // Query object to filter by user and status if provided
+    let query = { user: userId };
+    if (status) {
+      query.status = status;
+    }
 
     // Fetch user bookings with hotel details
-    const bookings = await Booking.find({ user: userId })
+    const bookings = await Booking.find(query)
       .populate("hotel")
       .populate({
         path: "ownerId",
@@ -325,7 +332,6 @@ export const cancelBooking = async (req, res) => {
     });
   }
 };
-
 
 export const getBookingByOwnerId = async (req, res) => {
   try {
