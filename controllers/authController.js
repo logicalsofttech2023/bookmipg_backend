@@ -57,7 +57,6 @@ export const generateOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
-    console.log(req.body);
     const { phone, countryCode, otp, firebaseToken } = req.body;
 
     if (!phone || !countryCode || !otp) {

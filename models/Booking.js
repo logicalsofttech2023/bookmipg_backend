@@ -62,6 +62,8 @@ const bookingSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
+    cancellationReason: { type: String, default: null },
+    cancelledAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

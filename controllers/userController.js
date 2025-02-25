@@ -10,7 +10,7 @@ import Favorite from "../models/Favorite.js";
 import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
 import mongoose from "mongoose";
 import geolib from "geolib";
-
+import Coupon from "../models/Coupon.js";
 
 export const addReview = async (req, res) => {
   try {
@@ -99,13 +99,7 @@ export const bookHotel = async (req, res) => {
     } = req.body;
     const userId = req.user.id;
 
-    if (
-      !hotelId ||
-      !checkInDate ||
-      !checkOutDate ||
-      !room ||
-      !adults
-    ) {
+    if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
       return res.status(400).json({
         message: "All fields are required (adults cannot be zero)",
         status: false,
@@ -207,17 +201,25 @@ export const getBookingByUserId = async (req, res) => {
       });
 
     if (!bookings.length) {
-      return res.status(404).json({ message: "No bookings found", status: false });
+      return res
+        .status(404)
+        .json({ message: "No bookings found", status: false });
     }
 
-    // Fetch hotel policies based on hotelId
+    // Fetch hotel policies based on hotelId for all bookings
     const bookingsWithPolicies = await Promise.all(
       bookings.map(async (booking) => {
-        const policy = await HotelOwnerPolicy.findOne({ hotelId: booking.hotel._id });
+        // Get all policies related to the hotelId
+        const policies = await HotelOwnerPolicy.find({
+          hotelId: booking.hotel._id,
+        });
 
         return {
           ...booking.toObject(),
-          hotelOwnerPolicy: policy ? policy.content : [], // Include policy content if found
+          hotelOwnerPolicies: policies.map((policy) => ({
+            type: policy.type,
+            content: policy.content,
+          })),
         };
       })
     );
@@ -228,6 +230,7 @@ export const getBookingByUserId = async (req, res) => {
       status: true,
     });
   } catch (error) {
+    console.error("Error fetching bookings:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -273,6 +276,56 @@ export const updateBookingStatus = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const cancelBooking = async (req, res) => {
+  try {
+    const { bookingId, reason } = req.body;
+    const userId = req.user.id;
+
+    if (!bookingId || !reason) {
+      return res.status(400).json({
+        message: "Booking ID and cancellation reason are required",
+        status: false,
+      });
+    }
+
+    // Check if booking exists
+    const booking = await Booking.findOne({ _id: bookingId, user: userId });
+
+    if (!booking) {
+      return res.status(404).json({
+        message: "Booking not found or does not belong to the user",
+        status: false,
+      });
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(400).json({
+        message: "Booking is already cancelled",
+        status: false,
+      });
+    }
+
+    // Update booking status
+    booking.status = "cancelled";
+    booking.cancellationReason = reason;
+    booking.cancelledAt = new Date();
+
+    await booking.save();
+
+    res.status(200).json({
+      message: "Booking cancelled successfully",
+      booking,
+      status: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 export const getBookingByOwnerId = async (req, res) => {
   try {
@@ -998,6 +1051,69 @@ export const getTrendingHotels = async (req, res) => {
       message: "Trending hotels retrieved successfully",
       status: true,
       hotels: updatedHotels,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getUserCoupons = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Fetch user with populated coupons
+    const user = await User.findById(userId).populate("coupons");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ coupons: user.coupons });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const applyUserCoupon = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { code, originalPrice } = req.body;
+
+    if (!code || !originalPrice) {
+      return res
+        .status(400)
+        .json({ message: "Field required code, originalPrice", status: false });
+    }
+
+    // Find user and populate coupons
+    const user = await User.findById(userId).populate("coupons");
+    if (!user)
+      return res.status(404).json({ message: "User not found", status: false });
+
+    // Find the assigned coupon
+    const coupon = user.coupons.find((coupon) => coupon.code === code);
+    if (!coupon)
+      return res
+        .status(404)
+        .json({ message: "Coupon not found for this user", status: false });
+
+    // Check expiry date
+    if (new Date() > new Date(coupon.expiryDate)) {
+      return res
+        .status(400)
+        .json({ message: "Coupon has expired", status: false });
+    }
+
+    // Calculate discount
+    let discountAmount = (originalPrice * coupon.discountPercentage) / 100;
+    if (coupon.maxDiscount > 0) {
+      discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+    }
+
+    const discountedPrice = originalPrice - discountAmount;
+
+    res.status(200).json({
+      message: "Coupon applied successfully",
+      discountAmount,
+      discountedPrice,
+      status: true,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

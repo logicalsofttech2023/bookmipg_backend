@@ -9,6 +9,7 @@ const hotelSchema = new mongoose.Schema(
     country: { type: String, required: true },
     zipCode: { type: String, required: true },
     pricePerNight: { type: Number, required: true },
+    discountedPrice: { type: Number, required: true },
     rating: { type: Number, default: 0 },
     room: {type: Number, default: 0, required: true},
     description: { type: String },

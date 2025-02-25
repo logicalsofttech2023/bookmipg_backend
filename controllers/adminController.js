@@ -4,6 +4,7 @@ import Hotel from "../models/Hotel.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import Coupon from "../models/Coupon.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -169,6 +170,7 @@ export const addHotel = async (req, res) => {
       country,
       zipCode,
       pricePerNight,
+      discountedPrice,
       rating,
       amenities,
       facilities,
@@ -189,7 +191,8 @@ export const addHotel = async (req, res) => {
       !pricePerNight ||
       !latitude ||
       !longitude ||
-      !room
+      !room ||
+      !discountedPrice
     ) {
       return res.status(400).json({
         message: "All required fields must be provided.",
@@ -209,6 +212,7 @@ export const addHotel = async (req, res) => {
       country,
       zipCode,
       pricePerNight,
+      discountedPrice,
       room,
       description,
       rating: rating || 0,
@@ -266,7 +270,9 @@ export const updateHotel = async (req, res) => {
 
     // Check ownership
     if (hotel.owner.toString() !== owner) {
-      return res.status(403).json({ message: "You are not authorized to update this hotel." });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to update this hotel." });
     }
 
     // ✅ Update fields if provided
@@ -286,7 +292,9 @@ export const updateHotel = async (req, res) => {
     hotel.longitude = longitude || hotel.longitude;
 
     // ✅ Preserve old images from frontend
-    let updatedImages = existingImages ? JSON.parse(existingImages) : hotel.images;
+    let updatedImages = existingImages
+      ? JSON.parse(existingImages)
+      : hotel.images;
 
     if (req.files && req.files.length > 0) {
       const __filename = fileURLToPath(import.meta.url);
@@ -294,7 +302,8 @@ export const updateHotel = async (req, res) => {
 
       // ✅ Purani images delete sirf tab ho jab naye images upload ho
       for (const oldImage of hotel.images) {
-        if (!updatedImages.includes(oldImage)) { // ✅ Agar old image nahi hai existing list me toh delete karo
+        if (!updatedImages.includes(oldImage)) {
+          // ✅ Agar old image nahi hai existing list me toh delete karo
           const oldImagePath = path.join(__dirname, "..", oldImage);
           fs.unlink(oldImagePath, (err) => {
             if (err) console.error("Error deleting old image:", err);
@@ -303,7 +312,9 @@ export const updateHotel = async (req, res) => {
       }
 
       // ✅ Nayi images ko add karo
-      const newImageUrls = req.files.map((file) => file.path.split(path.sep).join("/"));
+      const newImageUrls = req.files.map((file) =>
+        file.path.split(path.sep).join("/")
+      );
       updatedImages = [...updatedImages, ...newImageUrls];
     }
 
@@ -415,13 +426,15 @@ export const deleteHotel = async (req, res) => {
   }
 };
 
-export const deleteHotelImage = async (req, res) => {  
-  const owner = req.user.id;  
+export const deleteHotelImage = async (req, res) => {
+  const owner = req.user.id;
   try {
-    const { hotelId, imageUrl } = req.body;        
+    const { hotelId, imageUrl } = req.body;
 
     if (!hotelId || !imageUrl) {
-      return res.status(400).json({ message: "Hotel ID and image URL are required." });
+      return res
+        .status(400)
+        .json({ message: "Hotel ID and image URL are required." });
     }
 
     // Find the hotel by ID
@@ -432,15 +445,19 @@ export const deleteHotelImage = async (req, res) => {
     }
 
     if (hotel.owner.toString() !== owner) {
-      return res.status(403).json({ message: "You are not authorized to delete this image." });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this image." });
     }
 
     // Check if the image exists in the hotel record
     const imageIndex = hotel.images.indexOf(imageUrl);
     console.log(imageIndex);
-    
+
     if (imageIndex === -1) {
-      return res.status(404).json({ message: "Image not found in this hotel." });
+      return res
+        .status(404)
+        .json({ message: "Image not found in this hotel." });
     }
 
     // Remove the image from the array
@@ -459,6 +476,56 @@ export const deleteHotelImage = async (req, res) => {
     await hotel.save();
 
     res.status(200).json({ message: "Image deleted successfully!", hotel });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const createCoupon = async (req, res) => {
+  try {
+    const { code, discountPercentage, maxDiscount, expiryDate, isActive } = req.body;
+
+    // Check if coupon already exists
+    const existingCoupon = await Coupon.findOne({ code });
+    if (existingCoupon) return res.status(400).json({ message: "Coupon code already exists" });
+
+    const newCoupon = new Coupon({ code, discountPercentage, maxDiscount, expiryDate, isActive });
+    await newCoupon.save();
+
+    res.status(201).json({ message: "Coupon created successfully", coupon: newCoupon });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const assignCouponToUsers = async (req, res) => {
+  try {
+    const { couponId, userIds } = req.body;
+
+    // Check if coupon exists
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) return res.status(404).json({ message: "Coupon not found", status: false });
+
+    // Loop through users and assign coupon
+    for (const userId of userIds) {
+      const user = await User.findById(userId);
+      if (user) {
+        // Avoid duplicate coupons for users
+        if (!user.coupons.includes(couponId)) {
+          user.coupons.push(couponId);
+          await user.save();
+        }
+
+        // Add user to coupon's assignedUsers list
+        if (!coupon.assignedUsers.includes(userId)) {
+          coupon.assignedUsers.push(userId);
+        }
+      }
+    }
+
+    await coupon.save();
+
+    res.status(200).json({ message: "Coupon assigned to users successfully", status: true });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

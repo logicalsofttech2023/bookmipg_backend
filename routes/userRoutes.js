@@ -19,7 +19,10 @@ import {
   getHotelOwnerPolicyById,
   getNearbyHotels,
   getRecommendedHotelsForWeb,
-  getTrendingHotels
+  getTrendingHotels,
+  getUserCoupons,
+  applyUserCoupon,
+  cancelBooking
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadRating, uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -69,6 +72,13 @@ router.post("/getNearbyHotels", getNearbyHotels);
 router.post("/getRecommendedHotels", authMiddleware, getRecommendedHotelsForWeb);
 
 router.get("/getTrendingHotels", getTrendingHotels);
+
+router.get("/getUserCoupons",authMiddleware, getUserCoupons);
+
+router.post("/applyUserCoupon",authMiddleware, applyUserCoupon);
+
+router.post("/cancelBooking",authMiddleware, cancelBooking);
+
 
 
 export default router;
