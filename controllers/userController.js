@@ -191,12 +191,16 @@ export const bookHotel = async (req, res) => {
 export const getBookingByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { status } = req.query;    
-
-    // Query object to filter by user and status if provided
+    const { status } = req.query;
     let query = { user: userId };
+
+    // If status is provided, apply the filter
     if (status) {
-      query.status = status;
+      if (status === "upcoming") {
+        query.status = { $in: ["upcoming", "pending"] };
+      } else {
+        query.status = status;
+      }
     }
 
     // Fetch user bookings with hotel details
