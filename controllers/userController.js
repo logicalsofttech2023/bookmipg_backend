@@ -96,6 +96,8 @@ export const bookHotel = async (req, res) => {
       name,
       number,
       countryCode,
+      totalPrice,
+      couponId,
     } = req.body;
     const userId = req.user.id;
 
@@ -155,9 +157,6 @@ export const bookHotel = async (req, res) => {
       });
     }
 
-    const nights = (checkOut - checkIn) / (1000 * 60 * 60 * 24);
-    const totalPrice = hotel.pricePerNight * nights;
-
     // Generate a unique booking ID like "W9656870"
     const bookingId = `W${Math.floor(1000000 + Math.random() * 9000000)}`;
 
@@ -178,6 +177,17 @@ export const bookHotel = async (req, res) => {
     });
 
     await newBooking.save();
+
+    // If a coupon is applied, update the coupon model
+    if (couponId) {
+      const coupon = await Coupon.findById(couponId);
+      if (coupon) {
+        if (!coupon.appliedCouponUsers.includes(userId)) {
+          coupon.appliedCouponUsers.push(userId);
+          await coupon.save();
+        }
+      }
+    }
     res.status(201).json({
       message: "Booking successful!",
       booking: newBooking,
@@ -913,7 +923,6 @@ export const getNearbyHotels = async (req, res) => {
         { latitude, longitude },
         { latitude: hotel.latitude, longitude: hotel.longitude }
       );
-      console.log(distance);
 
       return distance <= radius;
     });
@@ -1075,7 +1084,12 @@ export const getUserCoupons = async (req, res) => {
     const user = await User.findById(userId).populate("coupons");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ coupons: user.coupons });
+    // Filter out coupons where the user has already applied
+    const availableCoupons = user.coupons.filter(
+      (coupon) => !coupon.appliedCouponUsers.includes(userId)
+    );
+
+    res.status(200).json({ coupons: availableCoupons });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -1113,9 +1127,6 @@ export const applyUserCoupon = async (req, res) => {
 
     // Calculate discount
     let discountAmount = (originalPrice * coupon.discountPercentage) / 100;
-    if (coupon.maxDiscount > 0) {
-      discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-    }
 
     const discountedPrice = originalPrice - discountAmount;
 

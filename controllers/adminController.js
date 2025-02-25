@@ -490,13 +490,13 @@ export const deleteHotelImage = async (req, res) => {
 
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discountPercentage, maxDiscount, expiryDate, isActive } = req.body;
+    const { code, discountPercentage, expiryDate,title, isActive } = req.body;
 
     // Check if coupon already exists
     const existingCoupon = await Coupon.findOne({ code });
     if (existingCoupon) return res.status(400).json({ message: "Coupon code already exists" });
 
-    const newCoupon = new Coupon({ code, discountPercentage, maxDiscount, expiryDate, isActive });
+    const newCoupon = new Coupon({ code, discountPercentage, expiryDate, title, isActive });
     await newCoupon.save();
 
     res.status(201).json({ message: "Coupon created successfully", coupon: newCoupon });

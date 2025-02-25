@@ -4,10 +4,11 @@ const couponSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true },
     discountPercentage: { type: Number, required: true },
-    maxDiscount: { type: Number, default: 0 },
+    title: { type: String, required: true },
     expiryDate: { type: Date, required: true },
     isActive: { type: Boolean, default: true },
-    assignedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    assignedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    appliedCouponUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );
