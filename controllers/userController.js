@@ -25,6 +25,11 @@ export const addReview = async (req, res) => {
         .json({ message: "Hotel not found.", status: false });
     }
 
+    const existingReview = await RatingReview.findOne({ hotel: hotelId, user: userId });
+    if (existingReview) {
+      return res.status(400).json({ message: "You have already submitted a review for this hotel.", status: false });
+    }
+
     // Handle images upload (multiple images)
     const imageUrls = req.files
       ? req.files.map((file) => file.path.split(path.sep).join("/"))
@@ -147,8 +152,12 @@ export const bookHotel = async (req, res) => {
     const existingBooking = await Booking.findOne({
       hotel: hotelId,
       room,
-      $or: [{ checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }],
+      status: { $nin: ["cancelled"] },
+      $or: [
+        { checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }
+      ],
     });
+    
 
     if (existingBooking) {
       return res.status(400).json({
@@ -252,6 +261,45 @@ export const getBookingByUserId = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching bookings:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getBookingById = async (req, res) => {
+  try {
+    const { bookingId } = req.query;
+    
+    // Find booking by ID and populate hotel details and owner details
+    const booking = await Booking.findById(bookingId)
+      .populate("hotel")
+      .populate({
+        path: "ownerId",
+        select: "phone",
+      })
+      .populate("user")
+    
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found", status: false });
+    }
+
+    // Fetch hotel policies related to the hotelId
+    const policies = await HotelOwnerPolicy.find({ hotelId: booking.hotel._id });
+
+    const bookingWithPolicies = {
+      ...booking.toObject(),
+      hotelOwnerPolicies: policies.map((policy) => ({
+        type: policy.type,
+        content: policy.content,
+      })),
+    };    
+
+    res.status(200).json({
+      message: "Booking retrieved successfully",
+      booking: bookingWithPolicies,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error fetching booking:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -494,6 +542,45 @@ export const getHotelById = async (req, res) => {
     let isFavorite = false;
     if (userId) {
       const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
+      
+
+      isFavorite = !!favorite;
+    }
+
+    res.status(200).json({
+      message: "Get hotel successfully",
+      status: true,
+      hotel: { ...hotel._doc, reviewCount, isFavorite },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getHotelByIdForWeb = async (req, res) => {
+  try {
+    const { hotelId } = req.query;
+    const userId = req?.user?.id;
+    console.log(userId);
+    if (!hotelId) {
+      return res.status(400).json({ message: "Hotel ID is required." });
+    }
+
+    const hotel = await Hotel.findById(hotelId);
+
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found." });
+    }
+
+    // Get review count for the hotel
+    const reviewCount = await RatingReview.countDocuments({ hotel: hotelId });
+
+    // Check if the hotel is in user's favorites
+    let isFavorite = false;
+    if (userId) {
+      const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
+      
+
       isFavorite = !!favorite;
     }
 
@@ -520,6 +607,7 @@ export const getAllHotelsByFilter = async (req, res) => {
       zipCode,
       minPrice,
       maxPrice,
+      amenities, // Added amenities filter
     } = req.query;
 
     // Convert page and limit to numbers
@@ -570,8 +658,17 @@ export const getAllHotelsByFilter = async (req, res) => {
     // Filter by price range if provided
     if (minPrice || maxPrice) {
       filter.pricePerNight = {};
-      if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice); // Minimum price
-      if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice); // Maximum price
+      if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
+    }
+
+    // Filter by amenities if provided
+    if (amenities) {
+      const amenitiesArray = Array.isArray(amenities)
+        ? amenities
+        : amenities.split(",");
+
+      filter.amenities = { $all: amenitiesArray };
     }
 
     // Fetch filtered hotels with pagination

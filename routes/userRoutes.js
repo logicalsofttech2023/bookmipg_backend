@@ -22,11 +22,15 @@ import {
   getTrendingHotels,
   getUserCoupons,
   applyUserCoupon,
-  cancelBooking
+  cancelBooking,
+  getBookingById,
+  getHotelByIdForWeb
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
+import optionalMiddleware from "../middlewares/optionalMiddleware.js";
 import { uploadRating, uploadHotel } from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
+
 
 router.post(
   "/addReview",
@@ -55,7 +59,9 @@ router.get("/getAllHotels",authMiddleware, getAllHotelsForApp);
 
 router.get("/getAllHotelsForWeb", getAllHotelsForWeb);
 
-router.get("/getHotelById", getHotelById);
+router.get("/getHotelById", authMiddleware, getHotelById);
+
+router.get("/getHotelByIdForWeb",optionalMiddleware, getHotelByIdForWeb);
 
 router.get("/getAllHotelsByFilter", getAllHotelsByFilter);
 
@@ -79,6 +85,7 @@ router.post("/applyUserCoupon",authMiddleware, applyUserCoupon);
 
 router.post("/cancelBooking",authMiddleware, cancelBooking);
 
+router.get("/getBookingById", getBookingById);
 
 
 export default router;
