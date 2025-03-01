@@ -25,9 +25,17 @@ export const addReview = async (req, res) => {
         .json({ message: "Hotel not found.", status: false });
     }
 
-    const existingReview = await RatingReview.findOne({ hotel: hotelId, user: userId });
+    const existingReview = await RatingReview.findOne({
+      hotel: hotelId,
+      user: userId,
+    });
     if (existingReview) {
-      return res.status(400).json({ message: "You have already submitted a review for this hotel.", status: false });
+      return res
+        .status(400)
+        .json({
+          message: "You have already submitted a review for this hotel.",
+          status: false,
+        });
     }
 
     // Handle images upload (multiple images)
@@ -153,11 +161,8 @@ export const bookHotel = async (req, res) => {
       hotel: hotelId,
       room,
       status: { $nin: ["cancelled"] },
-      $or: [
-        { checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }
-      ],
+      $or: [{ checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }],
     });
-    
 
     if (existingBooking) {
       return res.status(400).json({
@@ -223,12 +228,10 @@ export const getBookingByUserId = async (req, res) => {
     }
 
     // Fetch user bookings with hotel details
-    const bookings = await Booking.find(query)
-      .populate("hotel")
-      .populate({
-        path: "ownerId",
-        select: "phone",
-      });
+    const bookings = await Booking.find(query).populate("hotel").populate({
+      path: "ownerId",
+      select: "phone",
+    });
 
     if (!bookings.length) {
       return res
@@ -268,7 +271,7 @@ export const getBookingByUserId = async (req, res) => {
 export const getBookingById = async (req, res) => {
   try {
     const { bookingId } = req.query;
-    
+
     // Find booking by ID and populate hotel details and owner details
     const booking = await Booking.findById(bookingId)
       .populate("hotel")
@@ -276,14 +279,18 @@ export const getBookingById = async (req, res) => {
         path: "ownerId",
         select: "phone",
       })
-      .populate("user")
-    
+      .populate("user");
+
     if (!booking) {
-      return res.status(404).json({ message: "Booking not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Booking not found", status: false });
     }
 
     // Fetch hotel policies related to the hotelId
-    const policies = await HotelOwnerPolicy.find({ hotelId: booking.hotel._id });
+    const policies = await HotelOwnerPolicy.find({
+      hotelId: booking.hotel._id,
+    });
 
     const bookingWithPolicies = {
       ...booking.toObject(),
@@ -291,7 +298,7 @@ export const getBookingById = async (req, res) => {
         type: policy.type,
         content: policy.content,
       })),
-    };    
+    };
 
     res.status(200).json({
       message: "Booking retrieved successfully",
@@ -446,7 +453,7 @@ export const getAllHotelsForApp = async (req, res) => {
 
     let updatedHotels = hotels.map((hotel) => ({
       ...hotel._doc,
-      reviewCount: reviewCountMap[hotel._id.toString()] || 0, // Default to 0 if no reviews
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0,
     }));
 
     // If latitude, longitude, and radius are provided, filter hotels within radius
@@ -485,7 +492,7 @@ export const getAllHotelsForApp = async (req, res) => {
 
 export const getAllHotelsForWeb = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req?.user?.id;
     // Fetch all hotels
     const hotels = await Hotel.find();
 
@@ -542,7 +549,6 @@ export const getHotelById = async (req, res) => {
     let isFavorite = false;
     if (userId) {
       const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
-      
 
       isFavorite = !!favorite;
     }
@@ -561,7 +567,6 @@ export const getHotelByIdForWeb = async (req, res) => {
   try {
     const { hotelId } = req.query;
     const userId = req?.user?.id;
-    console.log(userId);
     if (!hotelId) {
       return res.status(400).json({ message: "Hotel ID is required." });
     }
@@ -579,7 +584,6 @@ export const getHotelByIdForWeb = async (req, res) => {
     let isFavorite = false;
     if (userId) {
       const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
-      
 
       isFavorite = !!favorite;
     }
@@ -594,6 +598,110 @@ export const getHotelByIdForWeb = async (req, res) => {
   }
 };
 
+// export const getAllHotelsByFilter = async (req, res) => {
+//   try {
+//     const {
+//       search = "",
+//       page = 1,
+//       limit = 10,
+//       hotelId,
+//       city,
+//       state,
+//       country,
+//       zipCode,
+//       minPrice,
+//       maxPrice,
+//       amenities,
+//     } = req.query;
+
+//     // Convert page and limit to numbers
+//     const pageNumber = parseInt(page, 10);
+//     const limitNumber = parseInt(limit, 10);
+//     const skip = (pageNumber - 1) * limitNumber;
+
+//     // Build the filter query
+//     let filter = {};
+
+//     // Apply search term to multiple fields
+//     if (search) {
+//       const searchRegex = { $regex: search, $options: "i" };
+//       filter.$or = [
+//         { name: searchRegex },
+//         { city: searchRegex },
+//         { state: searchRegex },
+//         { country: searchRegex },
+//         { zipCode: searchRegex },
+//       ];
+//     }
+
+//     // Filter by hotel ID if provided
+//     if (hotelId) {
+//       filter._id = hotelId;
+//     }
+
+//     // Filter by city if provided
+//     if (city) {
+//       filter.city = { $regex: city, $options: "i" };
+//     }
+
+//     // Filter by state if provided
+//     if (state) {
+//       filter.state = { $regex: state, $options: "i" };
+//     }
+
+//     // Filter by country if provided
+//     if (country) {
+//       filter.country = { $regex: country, $options: "i" };
+//     }
+
+//     // Filter by zip code if provided
+//     if (zipCode) {
+//       filter.zipCode = zipCode;
+//     }
+
+//     // Filter by price range if provided
+//     if (minPrice || maxPrice) {
+//       filter.pricePerNight = {};
+//       if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
+//       if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
+//     }
+
+//     // Filter by amenities if provided
+//     if (amenities) {
+//       const amenitiesArray = Array.isArray(amenities)
+//         ? amenities
+//         : amenities.split(",");
+
+//       filter.amenities = { $all: amenitiesArray };
+//     }
+
+//     // Fetch filtered hotels with pagination
+//     const hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
+
+//     // Total count for pagination metadata
+//     const totalHotels = await Hotel.countDocuments(filter);
+
+//     if (!hotels.length) {
+//       return res
+//         .status(404)
+//         .json({ message: "No hotels found", status: false });
+//     }
+
+//     res.status(200).json({
+//       message: "Hotels retrieved successfully",
+//       status: true,
+//       hotels,
+//       pagination: {
+//         total: totalHotels,
+//         currentPage: pageNumber,
+//         totalPages: Math.ceil(totalHotels / limitNumber),
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
 export const getAllHotelsByFilter = async (req, res) => {
   try {
     const {
@@ -607,18 +715,20 @@ export const getAllHotelsByFilter = async (req, res) => {
       zipCode,
       minPrice,
       maxPrice,
-      amenities, // Added amenities filter
+      amenities,
+      latitude,
+      longitude,
+      radius = 5000
     } = req.query;
 
-    // Convert page and limit to numbers
+    const userId = req.user?.id; // Get user ID if available
+    
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Build the filter query
     let filter = {};
 
-    // Apply search term to multiple fields
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
       filter.$or = [
@@ -630,63 +740,70 @@ export const getAllHotelsByFilter = async (req, res) => {
       ];
     }
 
-    // Filter by hotel ID if provided
-    if (hotelId) {
-      filter._id = hotelId;
-    }
+    if (hotelId) filter._id = hotelId;
+    if (city) filter.city = { $regex: city, $options: "i" };
+    if (state) filter.state = { $regex: state, $options: "i" };
+    if (country) filter.country = { $regex: country, $options: "i" };
+    if (zipCode) filter.zipCode = zipCode;
 
-    // Filter by city if provided
-    if (city) {
-      filter.city = { $regex: city, $options: "i" };
-    }
-
-    // Filter by state if provided
-    if (state) {
-      filter.state = { $regex: state, $options: "i" };
-    }
-
-    // Filter by country if provided
-    if (country) {
-      filter.country = { $regex: country, $options: "i" };
-    }
-
-    // Filter by zip code if provided
-    if (zipCode) {
-      filter.zipCode = zipCode;
-    }
-
-    // Filter by price range if provided
     if (minPrice || maxPrice) {
       filter.pricePerNight = {};
       if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
       if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
     }
 
-    // Filter by amenities if provided
     if (amenities) {
-      const amenitiesArray = Array.isArray(amenities)
-        ? amenities
-        : amenities.split(",");
-
+      const amenitiesArray = Array.isArray(amenities) ? amenities : amenities.split(",");
       filter.amenities = { $all: amenitiesArray };
     }
 
-    // Fetch filtered hotels with pagination
-    const hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
-
-    // Total count for pagination metadata
+    let hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
     const totalHotels = await Hotel.countDocuments(filter);
 
     if (!hotels.length) {
-      return res
-        .status(404)
-        .json({ message: "No hotels found", status: false });
+      return res.status(404).json({ message: "No hotels found", status: false });
+    }
+
+    const hotelIds = hotels.map((hotel) => hotel._id);
+    
+    // Fetch review counts
+    const reviewCounts = await RatingReview.aggregate([
+      { $match: { hotel: { $in: hotelIds } } },
+      { $group: { _id: "$hotel", count: { $sum: 1 } } },
+    ]);
+    
+    const reviewCountMap = reviewCounts.reduce((acc, cur) => {
+      acc[cur._id.toString()] = cur.count;
+      return acc;
+    }, {});
+
+    // Fetch favorite status
+    let favoriteHotels = [];
+    if (userId) {
+      favoriteHotels = await Favorite.find({ user: userId, hotel: { $in: hotelIds } });
+    }
+    const favoriteHotelIds = new Set(favoriteHotels.map((fav) => fav.hotel.toString()));
+
+    let updatedHotels = hotels.map((hotel) => ({
+      ...hotel._doc,
+      reviewCount: reviewCountMap[hotel._id.toString()] || 0,
+      isFavorite: favoriteHotelIds.has(hotel._id.toString()),
+    }));
+
+    if (latitude && longitude && radius) {
+      updatedHotels = updatedHotels.filter((hotel) => {
+        const distance = geolib.getDistance(
+          { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+          { latitude: hotel.latitude, longitude: hotel.longitude }
+        );
+        return distance <= parseFloat(radius);
+      });
     }
 
     res.status(200).json({
       message: "Hotels retrieved successfully",
       status: true,
-      hotels,
+      hotels: updatedHotels,
       pagination: {
         total: totalHotels,
         currentPage: pageNumber,

@@ -57,13 +57,13 @@ router.get("/getFavorites", authMiddleware, getFavorites);
 
 router.get("/getAllHotels",authMiddleware, getAllHotelsForApp);
 
-router.get("/getAllHotelsForWeb", getAllHotelsForWeb);
+router.get("/getAllHotelsForWeb",optionalMiddleware, getAllHotelsForWeb);
 
 router.get("/getHotelById", authMiddleware, getHotelById);
 
 router.get("/getHotelByIdForWeb",optionalMiddleware, getHotelByIdForWeb);
 
-router.get("/getAllHotelsByFilter", getAllHotelsByFilter);
+router.get("/getAllHotelsByFilter",optionalMiddleware, getAllHotelsByFilter);
 
 router.post("/updateHotelOwnerPolicy",authMiddleware, updateHotelOwnerPolicy);
 
