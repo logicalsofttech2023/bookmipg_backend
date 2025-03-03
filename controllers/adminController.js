@@ -5,6 +5,61 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import Coupon from "../models/Coupon.js";
+import jwt from "jsonwebtoken";
+
+
+const generateJwtToken = (user) => {
+  return jwt.sign(
+    { id: user._id, phone: user.phone, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+};
+
+export const loginAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required", status: false });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid email or password", status: false });
+    }
+    if (!password === user.password) {
+      return res
+        .status(400)
+        .json({ message: "Invalid email or password", status: false });
+    }
+
+    // Generate JWT token
+    const token = generateJwtToken(user);
+
+    // Remove sensitive data before sending response
+    const userData = { ...user._doc };
+    delete userData.password;
+    delete userData.otp;
+    delete userData.otpExpiresAt;
+
+    res.status(200).json({
+      message: "Login successful",
+      status: true,
+      token,
+      data: userData,
+    });
+  } catch (error) {
+    console.error("Error logging in:", error);
+    res.status(500).json({ message: "Internal Server Error", status: false });
+  }
+};
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -288,7 +343,8 @@ export const updateHotel = async (req, res) => {
     hotel.country = country || hotel.country;
     hotel.zipCode = zipCode || hotel.zipCode;
     hotel.pricePerNight = pricePerNight || hotel.pricePerNight;
-    hotel.originalPricePerNight = originalPricePerNight || hotel.originalPricePerNight;
+    hotel.originalPricePerNight =
+      originalPricePerNight || hotel.originalPricePerNight;
     hotel.taxesAmount = taxesAmount || hotel.taxesAmount;
     hotel.room = room || hotel.room;
     hotel.description = description || hotel.description;
@@ -490,16 +546,33 @@ export const deleteHotelImage = async (req, res) => {
 
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discountPercentage, expiryDate,title, description, isActive } = req.body;
+    const {
+      code,
+      discountPercentage,
+      expiryDate,
+      title,
+      description,
+      isActive,
+    } = req.body;
 
     // Check if coupon already exists
     const existingCoupon = await Coupon.findOne({ code });
-    if (existingCoupon) return res.status(400).json({ message: "Coupon code already exists" });
+    if (existingCoupon)
+      return res.status(400).json({ message: "Coupon code already exists" });
 
-    const newCoupon = new Coupon({ code, discountPercentage, expiryDate, title,description, isActive });
+    const newCoupon = new Coupon({
+      code,
+      discountPercentage,
+      expiryDate,
+      title,
+      description,
+      isActive,
+    });
     await newCoupon.save();
 
-    res.status(201).json({ message: "Coupon created successfully", coupon: newCoupon });
+    res
+      .status(201)
+      .json({ message: "Coupon created successfully", coupon: newCoupon });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -511,7 +584,10 @@ export const assignCouponToUsers = async (req, res) => {
 
     // Check if coupon exists
     const coupon = await Coupon.findById(couponId);
-    if (!coupon) return res.status(404).json({ message: "Coupon not found", status: false });
+    if (!coupon)
+      return res
+        .status(404)
+        .json({ message: "Coupon not found", status: false });
 
     // Loop through users and assign coupon
     for (const userId of userIds) {
@@ -532,7 +608,9 @@ export const assignCouponToUsers = async (req, res) => {
 
     await coupon.save();
 
-    res.status(200).json({ message: "Coupon assigned to users successfully", status: true });
+    res
+      .status(200)
+      .json({ message: "Coupon assigned to users successfully", status: true });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

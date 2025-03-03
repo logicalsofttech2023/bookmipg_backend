@@ -133,13 +133,14 @@ export const bookHotel = async (req, res) => {
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
     const today = new Date();
+    
 
-    if (checkIn < today) {
-      return res.status(400).json({
-        message: "Check-in date must be in the future.",
-        status: false,
-      });
-    }
+    // if (checkIn < today) {
+    //   return res.status(400).json({
+    //     message: "Check-in date must be in the future.",
+    //     status: false,
+    //   });
+    // }
 
     if (checkOut <= checkIn) {
       return res.status(400).json({

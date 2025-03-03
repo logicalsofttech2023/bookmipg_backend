@@ -11,7 +11,8 @@ import {
   deleteHotel,
   deleteHotelImage,
   createCoupon,
-  assignCouponToUsers
+  assignCouponToUsers,
+  loginAdmin
 } from "../controllers/adminController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -19,6 +20,11 @@ import roleMiddleware from "../middlewares/roleMiddleware.js";
 
 
 const router = express.Router();
+
+router.post(
+  "/loginAdmin",
+  loginAdmin
+);
 
 router.get(
   "/getAllOwners",
