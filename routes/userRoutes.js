@@ -13,7 +13,6 @@ import {
   addFavorite,
   removeFavorite,
   getFavorites,
-  updateHotelOwnerPolicy,
   getHotelOwnerPolicyByOwnerId,
   getSimilarHotels,
   getHotelOwnerPolicyById,
@@ -24,13 +23,13 @@ import {
   applyUserCoupon,
   cancelBooking,
   getBookingById,
-  getHotelByIdForWeb
+  getHotelByIdForWeb,
+  searchHotels,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import optionalMiddleware from "../middlewares/optionalMiddleware.js";
 import { uploadRating, uploadHotel } from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
-
 
 router.post(
   "/addReview",
@@ -55,37 +54,44 @@ router.post("/removeFavorite", authMiddleware, removeFavorite);
 
 router.get("/getFavorites", authMiddleware, getFavorites);
 
-router.get("/getAllHotels",authMiddleware, getAllHotelsForApp);
+router.get("/getAllHotels", authMiddleware, getAllHotelsForApp);
 
-router.get("/getAllHotelsForWeb",optionalMiddleware, getAllHotelsForWeb);
+router.get("/getAllHotelsForWeb", optionalMiddleware, getAllHotelsForWeb);
 
 router.get("/getHotelById", authMiddleware, getHotelById);
 
-router.get("/getHotelByIdForWeb",optionalMiddleware, getHotelByIdForWeb);
+router.get("/getHotelByIdForWeb", optionalMiddleware, getHotelByIdForWeb);
 
-router.get("/getAllHotelsByFilter",optionalMiddleware, getAllHotelsByFilter);
+router.get("/getAllHotelsByFilter", optionalMiddleware, getAllHotelsByFilter);
 
-router.post("/updateHotelOwnerPolicy",authMiddleware, updateHotelOwnerPolicy);
+router.get(
+  "/getHotelOwnerPolicyByOwnerId",
+  authMiddleware,
+  getHotelOwnerPolicyByOwnerId
+);
 
-router.get("/getHotelOwnerPolicyByOwnerId",authMiddleware, getHotelOwnerPolicyByOwnerId);
-
-router.get("/getSimilarHotels",authMiddleware, getSimilarHotels);
+router.get("/getSimilarHotels", authMiddleware, getSimilarHotels);
 
 router.get("/getHotelOwnerPolicyById", getHotelOwnerPolicyById);
 
 router.post("/getNearbyHotels", getNearbyHotels);
 
-router.post("/getRecommendedHotels", authMiddleware, getRecommendedHotelsForWeb);
+router.post(
+  "/getRecommendedHotels",
+  authMiddleware,
+  getRecommendedHotelsForWeb
+);
 
 router.get("/getTrendingHotels", getTrendingHotels);
 
-router.get("/getUserCoupons",authMiddleware, getUserCoupons);
+router.get("/getUserCoupons", authMiddleware, getUserCoupons);
 
-router.post("/applyUserCoupon",authMiddleware, applyUserCoupon);
+router.post("/applyUserCoupon", authMiddleware, applyUserCoupon);
 
-router.post("/cancelBooking",authMiddleware, cancelBooking);
+router.post("/cancelBooking", authMiddleware, cancelBooking);
 
 router.get("/getBookingById", getBookingById);
 
+router.get("/searchHotels", searchHotels);
 
 export default router;

@@ -21,6 +21,7 @@ const hotelSchema = new mongoose.Schema(
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    adminVerify: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

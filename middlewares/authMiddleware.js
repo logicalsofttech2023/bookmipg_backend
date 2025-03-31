@@ -13,6 +13,8 @@ const authMiddleware = (req, res, next) => {
         req.user = decoded; // Attach user data to request
         next();
     } catch (error) {
+        console.log(error);
+        
         res.status(401).json({ msg: "Invalid token" });
     }
 };

@@ -21,6 +21,14 @@ const hotelOwnerPolicySchema = new mongoose.Schema(
       type: [String],
       required: true,
     },
+    checkInTime: {
+      type: String,
+      default: null,
+    },
+    checkOutTime: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

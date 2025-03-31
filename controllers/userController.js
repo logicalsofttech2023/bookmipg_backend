@@ -11,6 +11,7 @@ import HotelOwnerPolicy from "../models/HotelOwnerPolicy.js";
 import mongoose from "mongoose";
 import geolib from "geolib";
 import Coupon from "../models/Coupon.js";
+import { getDistance } from "geolib";
 
 export const addReview = async (req, res) => {
   try {
@@ -30,12 +31,10 @@ export const addReview = async (req, res) => {
       user: userId,
     });
     if (existingReview) {
-      return res
-        .status(400)
-        .json({
-          message: "You have already submitted a review for this hotel.",
-          status: false,
-        });
+      return res.status(400).json({
+        message: "You have already submitted a review for this hotel.",
+        status: false,
+      });
     }
 
     // Handle images upload (multiple images)
@@ -128,12 +127,17 @@ export const bookHotel = async (req, res) => {
         .json({ message: "Hotel not found", status: false });
     }
 
+    if (!hotel.isAvailable === true) {
+      return res
+        .status(404)
+        .json({ message: "Rooms not Available", status: false });
+    }
+
     const ownerId = hotel.owner;
 
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
     const today = new Date();
-    
 
     // if (checkIn < today) {
     //   return res.status(400).json({
@@ -428,10 +432,25 @@ export const getBookingByOwnerId = async (req, res) => {
 export const getAllHotelsForApp = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { latitude, longitude, radius } = req.query;
+    const { latitude, longitude, radius, search } = req.query;
 
-    // Fetch all hotels
-    let hotels = await Hotel.find();
+    // Create a search filter
+    let searchFilter = { adminVerify: true };
+    if (search) {
+      searchFilter.$and = [
+        { adminVerify: true },
+        {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { city: { $regex: search, $options: "i" } },
+            { address: { $regex: search, $options: "i" } },
+          ],
+        },
+      ];
+    }
+
+    // Fetch all hotels with search filter applied
+    let hotels = await Hotel.find(searchFilter);
 
     if (!hotels.length) {
       return res
@@ -461,10 +480,10 @@ export const getAllHotelsForApp = async (req, res) => {
     if (latitude && longitude && radius) {
       updatedHotels = updatedHotels.filter((hotel) => {
         const distance = geolib.getDistance(
-          { latitude, longitude },
+          { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
           { latitude: hotel.latitude, longitude: hotel.longitude }
         );
-        return distance <= radius;
+        return distance <= parseFloat(radius);
       });
     }
 
@@ -495,7 +514,7 @@ export const getAllHotelsForWeb = async (req, res) => {
   try {
     const userId = req?.user?.id;
     // Fetch all hotels
-    const hotels = await Hotel.find();
+    const hotels = await Hotel.find({ adminVerify: true });
 
     if (!hotels.length) {
       return res
@@ -599,110 +618,6 @@ export const getHotelByIdForWeb = async (req, res) => {
   }
 };
 
-// export const getAllHotelsByFilter = async (req, res) => {
-//   try {
-//     const {
-//       search = "",
-//       page = 1,
-//       limit = 10,
-//       hotelId,
-//       city,
-//       state,
-//       country,
-//       zipCode,
-//       minPrice,
-//       maxPrice,
-//       amenities,
-//     } = req.query;
-
-//     // Convert page and limit to numbers
-//     const pageNumber = parseInt(page, 10);
-//     const limitNumber = parseInt(limit, 10);
-//     const skip = (pageNumber - 1) * limitNumber;
-
-//     // Build the filter query
-//     let filter = {};
-
-//     // Apply search term to multiple fields
-//     if (search) {
-//       const searchRegex = { $regex: search, $options: "i" };
-//       filter.$or = [
-//         { name: searchRegex },
-//         { city: searchRegex },
-//         { state: searchRegex },
-//         { country: searchRegex },
-//         { zipCode: searchRegex },
-//       ];
-//     }
-
-//     // Filter by hotel ID if provided
-//     if (hotelId) {
-//       filter._id = hotelId;
-//     }
-
-//     // Filter by city if provided
-//     if (city) {
-//       filter.city = { $regex: city, $options: "i" };
-//     }
-
-//     // Filter by state if provided
-//     if (state) {
-//       filter.state = { $regex: state, $options: "i" };
-//     }
-
-//     // Filter by country if provided
-//     if (country) {
-//       filter.country = { $regex: country, $options: "i" };
-//     }
-
-//     // Filter by zip code if provided
-//     if (zipCode) {
-//       filter.zipCode = zipCode;
-//     }
-
-//     // Filter by price range if provided
-//     if (minPrice || maxPrice) {
-//       filter.pricePerNight = {};
-//       if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
-//       if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
-//     }
-
-//     // Filter by amenities if provided
-//     if (amenities) {
-//       const amenitiesArray = Array.isArray(amenities)
-//         ? amenities
-//         : amenities.split(",");
-
-//       filter.amenities = { $all: amenitiesArray };
-//     }
-
-//     // Fetch filtered hotels with pagination
-//     const hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
-
-//     // Total count for pagination metadata
-//     const totalHotels = await Hotel.countDocuments(filter);
-
-//     if (!hotels.length) {
-//       return res
-//         .status(404)
-//         .json({ message: "No hotels found", status: false });
-//     }
-
-//     res.status(200).json({
-//       message: "Hotels retrieved successfully",
-//       status: true,
-//       hotels,
-//       pagination: {
-//         total: totalHotels,
-//         currentPage: pageNumber,
-//         totalPages: Math.ceil(totalHotels / limitNumber),
-//       },
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
-
 export const getAllHotelsByFilter = async (req, res) => {
   try {
     const {
@@ -719,16 +634,16 @@ export const getAllHotelsByFilter = async (req, res) => {
       amenities,
       latitude,
       longitude,
-      radius = 5000
+      radius = 5000,
     } = req.query;
 
-    const userId = req.user?.id; // Get user ID if available
-    
+    const userId = req.user?.id;
+
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
-    let filter = {};
+    let filter = { adminVerify: true };
 
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
@@ -754,7 +669,9 @@ export const getAllHotelsByFilter = async (req, res) => {
     }
 
     if (amenities) {
-      const amenitiesArray = Array.isArray(amenities) ? amenities : amenities.split(",");
+      const amenitiesArray = Array.isArray(amenities)
+        ? amenities
+        : amenities.split(",");
       filter.amenities = { $all: amenitiesArray };
     }
 
@@ -762,17 +679,19 @@ export const getAllHotelsByFilter = async (req, res) => {
     const totalHotels = await Hotel.countDocuments(filter);
 
     if (!hotels.length) {
-      return res.status(404).json({ message: "No hotels found", status: false });
+      return res
+        .status(404)
+        .json({ message: "No hotels found", status: false });
     }
 
     const hotelIds = hotels.map((hotel) => hotel._id);
-    
+
     // Fetch review counts
     const reviewCounts = await RatingReview.aggregate([
       { $match: { hotel: { $in: hotelIds } } },
       { $group: { _id: "$hotel", count: { $sum: 1 } } },
     ]);
-    
+
     const reviewCountMap = reviewCounts.reduce((acc, cur) => {
       acc[cur._id.toString()] = cur.count;
       return acc;
@@ -781,9 +700,14 @@ export const getAllHotelsByFilter = async (req, res) => {
     // Fetch favorite status
     let favoriteHotels = [];
     if (userId) {
-      favoriteHotels = await Favorite.find({ user: userId, hotel: { $in: hotelIds } });
+      favoriteHotels = await Favorite.find({
+        user: userId,
+        hotel: { $in: hotelIds },
+      });
     }
-    const favoriteHotelIds = new Set(favoriteHotels.map((fav) => fav.hotel.toString()));
+    const favoriteHotelIds = new Set(
+      favoriteHotels.map((fav) => fav.hotel.toString())
+    );
 
     let updatedHotels = hotels.map((hotel) => ({
       ...hotel._doc,
@@ -909,73 +833,6 @@ export const getFavorites = async (req, res) => {
   }
 };
 
-export const updateHotelOwnerPolicy = async (req, res) => {
-  try {
-    let hotelOwnerId = req.user.id;
-    const { type, content, hotelId } = req.body;
-
-    // Validate required fields
-    if (!type || !content || !hotelId) {
-      return res.status(400).json({
-        message: "All fields (type, content, hotelId) are required",
-        status: false,
-      });
-    }
-
-    // Ensure `hotelId` is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(hotelId)) {
-      return res.status(400).json({
-        message: "Invalid hotelId format",
-        status: false,
-      });
-    }
-
-    // Ensure `content` is an array
-    if (!Array.isArray(content) || content.length === 0) {
-      return res.status(400).json({
-        message: "Content must be a non-empty array of points",
-        status: false,
-      });
-    }
-
-    let hotelOwnerPolicy = await HotelOwnerPolicy.findOne({
-      hotelOwnerId,
-      hotelId,
-      type,
-    });
-
-    if (hotelOwnerPolicy) {
-      hotelOwnerPolicy.content = content;
-      await hotelOwnerPolicy.save();
-      return res.status(200).json({
-        message: "Hotel owner policy updated successfully",
-        status: true,
-        hotelOwnerPolicy,
-      });
-    } else {
-      hotelOwnerPolicy = new HotelOwnerPolicy({
-        hotelOwnerId,
-        hotelId,
-        type,
-        content,
-      });
-      await hotelOwnerPolicy.save();
-      return res.status(201).json({
-        message: "Hotel owner policy created successfully",
-        status: true,
-        hotelOwnerPolicy,
-      });
-    }
-  } catch (error) {
-    console.error("Error updating hotel owner policy:", error);
-    res.status(500).json({
-      message: "Internal server error. Please try again later.",
-      status: false,
-      error: error.message,
-    });
-  }
-};
-
 export const getHotelOwnerPolicyByOwnerId = async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -1043,9 +900,10 @@ export const getSimilarHotels = async (req, res) => {
       city: currentHotel.city,
       pricePerNight: {
         $gte: currentHotel.pricePerNight * 0.8,
-        $lte: currentHotel.pricePerNight * 1.2,
+        $lte: +currentHotel.pricePerNight * 1.2,
       },
       amenities: { $in: currentHotel.amenities },
+      adminVerify: true,
     }).limit(10);
 
     if (!similarHotels.length) {
@@ -1130,7 +988,7 @@ export const getNearbyHotels = async (req, res) => {
     }
 
     // Fetch all hotels from the database
-    const hotels = await Hotel.find();
+    const hotels = await Hotel.find({ adminVerify: true });
 
     // Filter hotels within the given radius
     const nearbyHotels = hotels.filter((hotel) => {
@@ -1166,7 +1024,7 @@ export const getRecommendedHotelsForWeb = async (req, res) => {
     let recommendedHotels = [];
 
     // Fetch all hotels
-    let hotels = await Hotel.find();
+    let hotels = await Hotel.find({ adminVerify: true });
 
     // Get highly rated hotels
     const topRatedHotels = await RatingReview.aggregate([
@@ -1257,7 +1115,10 @@ export const getTrendingHotels = async (req, res) => {
       ]),
     ];
 
-    const hotels = await Hotel.find({ _id: { $in: hotelIds } });
+    const hotels = await Hotel.find({
+      _id: { $in: hotelIds },
+      adminVerify: true,
+    });
 
     // Fetch user favorites if authenticated
     const userId = req.user?.id;
@@ -1350,6 +1211,122 @@ export const applyUserCoupon = async (req, res) => {
       discountAmount,
       discountedPrice,
       status: true,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const searchHotels = async (req, res) => {
+  try {
+    const {
+      search = "",
+      minPrice,
+      maxPrice,
+      latitude,
+      longitude,
+      radius = 50000,
+      sortBy, // "lowToHigh", "highToLow", "popularity", "nearest", "guestRatings"
+    } = req.query;
+
+    if (
+      !search &&
+      !minPrice &&
+      !maxPrice &&
+      !latitude &&
+      !longitude &&
+      !sortBy
+    ) {
+      return res
+        .status(404)
+        .json({ message: "No hotels found", status: false });
+    }
+
+    let filter = { adminVerify: true };
+
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
+      filter.$or = [{ name: searchRegex }];
+    }
+
+    if (minPrice || maxPrice) {
+      filter.pricePerNight = {};
+      if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
+    }
+
+    let hotels = await Hotel.find(filter);
+
+    if (!hotels.length) {
+      return res
+        .status(404)
+        .json({ message: "No hotels found", status: false });
+    }
+
+    if (latitude && longitude && radius) {
+      hotels = hotels.filter((hotel) => {
+        const distance = getDistance(
+          { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+          { latitude: hotel.latitude, longitude: hotel.longitude }
+        );
+        return distance <= parseFloat(radius);
+      });
+    }
+
+    // Fetch review ratings
+    const hotelIds = hotels.map((hotel) => hotel._id);
+    const reviewData = await RatingReview.aggregate([
+      { $match: { hotel: { $in: hotelIds } } },
+      {
+        $group: {
+          _id: "$hotel",
+          averageRating: { $avg: "$rating" },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const reviewMap = reviewData.reduce((acc, cur) => {
+      acc[cur._id.toString()] = {
+        averageRating: cur.averageRating || 0,
+        reviewCount: cur.reviewCount || 0,
+      };
+      return acc;
+    }, {});
+
+    hotels = hotels.map((hotel) => ({
+      ...hotel._doc,
+      averageRating: reviewMap[hotel._id.toString()]?.averageRating || 0,
+      reviewCount: reviewMap[hotel._id.toString()]?.reviewCount || 0,
+      distance:
+        latitude && longitude
+          ? getDistance(
+              {
+                latitude: parseFloat(latitude),
+                longitude: parseFloat(longitude),
+              },
+              { latitude: hotel.latitude, longitude: hotel.longitude }
+            )
+          : null,
+    }));
+
+    // Sorting logic
+    if (sortBy === "lowToHigh") {
+      hotels.sort((a, b) => a.pricePerNight - b.pricePerNight);
+    } else if (sortBy === "highToLow") {
+      hotels.sort((a, b) => b.pricePerNight - a.pricePerNight);
+    } else if (sortBy === "popularity") {
+      hotels.sort((a, b) => b.reviewCount - a.reviewCount);
+    } else if (sortBy === "guestRatings") {
+      hotels.sort((a, b) => b.averageRating - a.averageRating);
+    } else if (sortBy === "nearest" && latitude && longitude) {
+      hotels.sort((a, b) => a.distance - b.distance);
+    }
+
+    res.status(200).json({
+      message: "Hotels retrieved successfully",
+      status: true,
+      hotels,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

@@ -11,4 +11,6 @@ const connectDB = () => {
     .catch((err) => console.error("DB Connection Failed:", err));
 };
 
+
+
 export default connectDB;

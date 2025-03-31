@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     otp: { type: String },
     otpExpiresAt: { type: Date },
     isVerified: { type: Boolean, default: false },
+    adminVerify: { type: Boolean, default: false },
     role: { type: String, enum: ["vendor", "admin", "user"], default: "user" },
     dob: { type: Date },
     gender: { type: String, enum: ["Male", "Female", "Undisclosed"] },
