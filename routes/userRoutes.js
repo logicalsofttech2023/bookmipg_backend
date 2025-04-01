@@ -92,6 +92,6 @@ router.post("/cancelBooking", authMiddleware, cancelBooking);
 
 router.get("/getBookingById", getBookingById);
 
-router.get("/searchHotels", searchHotels);
+router.get("/searchHotels", authMiddleware, searchHotels);
 
 export default router;

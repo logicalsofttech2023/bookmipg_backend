@@ -618,6 +618,128 @@ export const getHotelByIdForWeb = async (req, res) => {
   }
 };
 
+// export const getAllHotelsByFilter = async (req, res) => {
+//   try {
+//     const {
+//       search = "",
+//       page = 1,
+//       limit = 10,
+//       hotelId,
+//       city,
+//       state,
+//       country,
+//       zipCode,
+//       minPrice,
+//       maxPrice,
+//       amenities,
+//       latitude,
+//       longitude,
+//       radius = 5000,
+//     } = req.query;
+
+//     const userId = req.user?.id;
+
+//     const pageNumber = parseInt(page, 10);
+//     const limitNumber = parseInt(limit, 10);
+//     const skip = (pageNumber - 1) * limitNumber;
+
+//     let filter = { adminVerify: true };
+
+//     if (search) {
+//       const searchRegex = { $regex: search, $options: "i" };
+//       filter.$or = [
+//         { name: searchRegex },
+//         { city: searchRegex },
+//         { state: searchRegex },
+//         { country: searchRegex },
+//         { zipCode: searchRegex },
+//       ];
+//     }
+
+//     if (hotelId) filter._id = hotelId;
+//     if (city) filter.city = { $regex: city, $options: "i" };
+//     if (state) filter.state = { $regex: state, $options: "i" };
+//     if (country) filter.country = { $regex: country, $options: "i" };
+//     if (zipCode) filter.zipCode = zipCode;
+
+//     if (minPrice || maxPrice) {
+//       filter.pricePerNight = {};
+//       if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
+//       if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
+//     }
+
+//     if (amenities) {
+//       const amenitiesArray = Array.isArray(amenities)
+//         ? amenities
+//         : amenities.split(",");
+//       filter.amenities = { $all: amenitiesArray };
+//     }
+
+//     let hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
+//     const totalHotels = await Hotel.countDocuments(filter);
+
+//     if (!hotels.length) {
+//       return res
+//         .status(404)
+//         .json({ message: "No hotels found", status: false });
+//     }
+
+//     const hotelIds = hotels.map((hotel) => hotel._id);
+
+//     // Fetch review counts
+//     const reviewCounts = await RatingReview.aggregate([
+//       { $match: { hotel: { $in: hotelIds } } },
+//       { $group: { _id: "$hotel", count: { $sum: 1 } } },
+//     ]);
+
+//     const reviewCountMap = reviewCounts.reduce((acc, cur) => {
+//       acc[cur._id.toString()] = cur.count;
+//       return acc;
+//     }, {});
+
+//     // Fetch favorite status
+//     let favoriteHotels = [];
+//     if (userId) {
+//       favoriteHotels = await Favorite.find({
+//         user: userId,
+//         hotel: { $in: hotelIds },
+//       });
+//     }
+//     const favoriteHotelIds = new Set(
+//       favoriteHotels.map((fav) => fav.hotel.toString())
+//     );
+
+//     let updatedHotels = hotels.map((hotel) => ({
+//       ...hotel._doc,
+//       reviewCount: reviewCountMap[hotel._id.toString()] || 0,
+//       isFavorite: favoriteHotelIds.has(hotel._id.toString()),
+//     }));
+
+//     if (latitude && longitude && radius) {
+//       updatedHotels = updatedHotels.filter((hotel) => {
+//         const distance = geolib.getDistance(
+//           { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+//           { latitude: hotel.latitude, longitude: hotel.longitude }
+//         );
+//         return distance <= parseFloat(radius);
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Hotels retrieved successfully",
+//       status: true,
+//       hotels: updatedHotels,
+//       pagination: {
+//         total: totalHotels,
+//         currentPage: pageNumber,
+//         totalPages: Math.ceil(totalHotels / limitNumber),
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
 export const getAllHotelsByFilter = async (req, res) => {
   try {
     const {
@@ -635,10 +757,12 @@ export const getAllHotelsByFilter = async (req, res) => {
       latitude,
       longitude,
       radius = 5000,
+      sortBy, // "lowToHigh", "highToLow", "popularity", "nearest", "guestRatings"
+      checkInDate,
+      checkOutDate,
     } = req.query;
 
     const userId = req.user?.id;
-
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
@@ -675,6 +799,7 @@ export const getAllHotelsByFilter = async (req, res) => {
       filter.amenities = { $all: amenitiesArray };
     }
 
+    // Step 1: Fetch hotels based on filters
     let hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
     const totalHotels = await Hotel.countDocuments(filter);
 
@@ -686,18 +811,27 @@ export const getAllHotelsByFilter = async (req, res) => {
 
     const hotelIds = hotels.map((hotel) => hotel._id);
 
-    // Fetch review counts
-    const reviewCounts = await RatingReview.aggregate([
+    // Step 2: Fetch review counts and ratings
+    const reviewData = await RatingReview.aggregate([
       { $match: { hotel: { $in: hotelIds } } },
-      { $group: { _id: "$hotel", count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: "$hotel",
+          averageRating: { $avg: "$rating" },
+          reviewCount: { $sum: 1 },
+        },
+      },
     ]);
 
-    const reviewCountMap = reviewCounts.reduce((acc, cur) => {
-      acc[cur._id.toString()] = cur.count;
+    const reviewMap = reviewData.reduce((acc, cur) => {
+      acc[cur._id.toString()] = {
+        averageRating: cur.averageRating || 0,
+        reviewCount: cur.reviewCount || 0,
+      };
       return acc;
     }, {});
 
-    // Fetch favorite status
+    // Step 3: Fetch favorite status
     let favoriteHotels = [];
     if (userId) {
       favoriteHotels = await Favorite.find({
@@ -709,20 +843,62 @@ export const getAllHotelsByFilter = async (req, res) => {
       favoriteHotels.map((fav) => fav.hotel.toString())
     );
 
-    let updatedHotels = hotels.map((hotel) => ({
-      ...hotel._doc,
-      reviewCount: reviewCountMap[hotel._id.toString()] || 0,
-      isFavorite: favoriteHotelIds.has(hotel._id.toString()),
-    }));
+    // Step 4: Fetch room availability for the given dates
+    let unavailableHotels = new Set();
+    if (checkInDate && checkOutDate) {
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
 
-    if (latitude && longitude && radius) {
-      updatedHotels = updatedHotels.filter((hotel) => {
-        const distance = geolib.getDistance(
-          { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-          { latitude: hotel.latitude, longitude: hotel.longitude }
-        );
-        return distance <= parseFloat(radius);
+      const bookedRooms = await Booking.find({
+        hotel: { $in: hotelIds },
+        status: { $nin: ["cancelled"] },
+        $or: [
+          { checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } },
+        ],
       });
+
+      bookedRooms.forEach((booking) => {
+        unavailableHotels.add(booking.hotel.toString());
+      });
+    }
+
+    // Step 5: Prepare the updated hotel list
+    let updatedHotels = hotels
+      .filter((hotel) => !unavailableHotels.has(hotel._id.toString())) // Filter out hotels with no available rooms
+      .map((hotel) => ({
+        ...hotel._doc,
+        averageRating: reviewMap[hotel._id.toString()]?.averageRating || 0,
+        reviewCount: reviewMap[hotel._id.toString()]?.reviewCount || 0,
+        isFavorite: favoriteHotelIds.has(hotel._id.toString()),
+      }));
+
+    // Step 6: Filter hotels by distance (if latitude & longitude are provided)
+    if (latitude && longitude && radius) {
+      updatedHotels = updatedHotels
+        .map((hotel) => ({
+          ...hotel,
+          distance: geolib.getDistance(
+            {
+              latitude: parseFloat(latitude),
+              longitude: parseFloat(longitude),
+            },
+            { latitude: hotel.latitude, longitude: hotel.longitude }
+          ),
+        }))
+        .filter((hotel) => hotel.distance <= parseFloat(radius));
+    }
+
+    // Step 7: Apply sorting logic
+    if (sortBy === "lowToHigh") {
+      updatedHotels.sort((a, b) => a.pricePerNight - b.pricePerNight);
+    } else if (sortBy === "highToLow") {
+      updatedHotels.sort((a, b) => b.pricePerNight - a.pricePerNight);
+    } else if (sortBy === "popularity") {
+      updatedHotels.sort((a, b) => b.reviewCount - a.reviewCount);
+    } else if (sortBy === "guestRatings") {
+      updatedHotels.sort((a, b) => b.averageRating - a.averageRating);
+    } else if (sortBy === "nearest" && latitude && longitude) {
+      updatedHotels.sort((a, b) => a.distance - b.distance);
     }
 
     res.status(200).json({
@@ -739,6 +915,7 @@ export const getAllHotelsByFilter = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const addFavorite = async (req, res) => {
   try {
@@ -1229,6 +1406,8 @@ export const searchHotels = async (req, res) => {
       sortBy, // "lowToHigh", "highToLow", "popularity", "nearest", "guestRatings"
     } = req.query;
 
+    const userId = req.user?.id; // Assuming the user is authenticated
+
     if (
       !search &&
       !minPrice &&
@@ -1309,6 +1488,19 @@ export const searchHotels = async (req, res) => {
             )
           : null,
     }));
+
+    // Check if the hotel is in the user's favorites
+    if (userId) {
+      const favorites = await Favorite.find({ user: userId });
+      const favoriteHotelIds = favorites.map((favorite) =>
+        favorite.hotel.toString()
+      );
+
+      hotels = hotels.map((hotel) => ({
+        ...hotel,
+        isFavorite: favoriteHotelIds.includes(hotel._id.toString()),
+      }));
+    }
 
     // Sorting logic
     if (sortBy === "lowToHigh") {
