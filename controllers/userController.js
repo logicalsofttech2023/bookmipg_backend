@@ -849,6 +849,8 @@ export const getAllHotelsByFilter = async (req, res) => {
       const checkIn = new Date(checkInDate);
       const checkOut = new Date(checkOutDate);
 
+      
+
       const bookedRooms = await Booking.find({
         hotel: { $in: hotelIds },
         status: { $nin: ["cancelled"] },

@@ -6,6 +6,12 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import path from "path";
+import admin from "firebase-admin";
+
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 const app = express();
@@ -16,6 +22,12 @@ connectDB();
 
 app.use("/uploads", express.static("uploads"));
 
+// Initialize Firebase
+const serviceAccount = path.join(__dirname, "bookmipg-firebase.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 // Routes
 app.use("/api/auth", authRoutes);

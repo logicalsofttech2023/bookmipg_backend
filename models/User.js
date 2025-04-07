@@ -18,9 +18,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["Married", "Unmarried", "Undisclosed"],
     },
-    firebaseToken: { type: String },
-    coupons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Coupon" }]
-
+    firebaseToken: {
+      type: String,
+      default: "",
+    },
+    coupons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Coupon" }],
   },
   { timestamps: true }
 );

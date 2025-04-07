@@ -3,6 +3,9 @@ import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import path from "path";
+import { sendNotification } from "../utils/notification.js";
+import axios from "axios";
+import qs from "qs";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -16,12 +19,51 @@ const generateFourDigitOtp = () => {
   return Math.floor(1000 + Math.random() * 9000).toString(); // Generates a random 4-digit number
 };
 
+// export const generateOtp = async (req, res) => {
+//   try {
+//     const { phone, countryCode } = req.body;
+//     if (!phone || !countryCode) {
+//       return res.status(400).json({
+//         message: "phone,countryCode number is required",
+//         status: false,
+//       });
+//     }
+
+//     let user = await User.findOne({ phone });
+
+//     const generatedOtp = generateFourDigitOtp();
+//     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+//     if (user) {
+//       user.otp = generatedOtp;
+//       user.otpExpiresAt = otpExpiresAt;
+//     } else {
+//       user = new User({
+//         phone,
+//         countryCode,
+//         otp: generatedOtp,
+//         otpExpiresAt,
+//       });
+//     }
+//     await user.save();
+
+//     res.status(200).json({
+//       message: "OTP generated successfully",
+//       status: true,
+//       data: user,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ message: "Server Error", status: false });
+//   }
+// };
+
 export const generateOtp = async (req, res) => {
   try {
     const { phone, countryCode } = req.body;
     if (!phone || !countryCode) {
       return res.status(400).json({
-        message: "phone,countryCode number is required",
+        message: "phone, countryCode is required",
         status: false,
       });
     }
@@ -42,10 +84,36 @@ export const generateOtp = async (req, res) => {
         otpExpiresAt,
       });
     }
+
     await user.save();
 
+    // Send OTP using Ping4SMS
+    const apiKey = `${process.env.PING4SMS_API_KEY}`;
+    const senderId = `${process.env.PING4SMS_SENDER_ID}`;
+    const route = 2;
+    const templateId = `${process.env.PING4SMS_TEMPLATE_ID}`;
+
+    const queryParams = qs.stringify({
+      key: apiKey,
+      sender: senderId,
+      number: `${phone}`,
+      route,
+      sms: `Dear customer, use this One Time Password ${generatedOtp} to log in to your Bookmipg Hotel account. This OTP will be valid for the next 5 mins.`,
+      templateid: templateId,
+    });
+
+    const smsUrl = `https://site.ping4sms.com/api/smsapi?${queryParams}`;
+    axios
+      .get(smsUrl)
+      .then((response) => {
+        console.log("SMS Response:", response);
+      })
+      .catch((error) => {
+        console.error("SMS Sending Failed:", error);
+      });
+
     res.status(200).json({
-      message: "OTP generated successfully",
+      message: "OTP generated and sent successfully",
       status: true,
       data: user,
     });
@@ -65,11 +133,9 @@ export const verifyOtp = async (req, res) => {
         status: false,
       });
     }
-    
 
     let user = await User.findOne({ phone, countryCode });
-    
-    
+
     if (!user || user.otp !== otp) {
       return res.status(400).json({ message: "Invalid OTP", status: false });
     }
@@ -80,7 +146,15 @@ export const verifyOtp = async (req, res) => {
 
     user.otpExpiresAt = "";
     user.isVerified = true;
+    user.firebaseToken = firebaseToken;
     await user.save();
+
+    // ✅ Send Push Notification after saving firebaseToken
+    await sendNotification(
+      firebaseToken,
+      "Login Successful",
+      `Welcome back, ${user.name || "User"}!`
+    );
 
     let token = "";
     let userExit = false;
@@ -140,10 +214,38 @@ export const resendOtp = async (req, res) => {
     user.otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await user.save();
 
-    res
-      .status(200)
-      .json({ message: "OTP resent successfully", status: true, data: user });
+    // Send OTP using Ping4SMS
+    const apiKey = `${process.env.PING4SMS_API_KEY}`;
+    const senderId = `${process.env.PING4SMS_SENDER_ID}`;
+    const route = 2;
+    const templateId = `${process.env.PING4SMS_TEMPLATE_ID}`;
+
+    const queryParams = qs.stringify({
+      key: apiKey,
+      sender: senderId,
+      number: `${phone}`,
+      route,
+      sms: `Dear customer, use this One Time Password ${generatedOtp} to log in to your Bookmipg Hotel account. This OTP will be valid for the next 5 mins.`,
+      templateid: templateId,
+    });
+
+    const smsUrl = `https://site.ping4sms.com/api/smsapi?${queryParams}`;
+    axios
+      .get(smsUrl)
+      .then((response) => {
+        console.log("SMS Response:", response.data);
+      })
+      .catch((error) => {
+        console.error("SMS Sending Failed:", error);
+      });
+
+    res.status(200).json({
+      message: "OTP resent successfully",
+      status: true,
+      data: user,
+    });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
