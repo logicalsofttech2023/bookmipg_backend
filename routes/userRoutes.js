@@ -25,6 +25,7 @@ import {
   getBookingById,
   getHotelByIdForWeb,
   searchHotels,
+  hotelOwnerData,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import optionalMiddleware from "../middlewares/optionalMiddleware.js";
@@ -93,5 +94,8 @@ router.post("/cancelBooking", authMiddleware, cancelBooking);
 router.get("/getBookingById", getBookingById);
 
 router.get("/searchHotels", authMiddleware, searchHotels);
+
+router.get("/hotelOwnerData", authMiddleware, hotelOwnerData);
+
 
 export default router;

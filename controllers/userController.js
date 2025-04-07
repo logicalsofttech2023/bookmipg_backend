@@ -12,6 +12,8 @@ import mongoose from "mongoose";
 import geolib from "geolib";
 import Coupon from "../models/Coupon.js";
 import { getDistance } from "geolib";
+import axios from "axios";
+import qs from "qs";
 
 export const addReview = async (req, res) => {
   try {
@@ -96,6 +98,127 @@ export const getReviewsByHotelId = async (req, res) => {
   }
 };
 
+// export const bookHotel = async (req, res) => {
+//   try {
+//     const {
+//       hotelId,
+//       checkInDate,
+//       checkOutDate,
+//       room,
+//       adults,
+//       children,
+//       name,
+//       number,
+//       countryCode,
+//       totalPrice,
+//       couponId,
+//     } = req.body;
+//     const userId = req.user.id;
+
+//     if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
+//       return res.status(400).json({
+//         message: "All fields are required (adults cannot be zero)",
+//         status: false,
+//       });
+//     }
+
+//     const hotel = await Hotel.findById(hotelId);
+//     if (!hotel) {
+//       return res
+//         .status(404)
+//         .json({ message: "Hotel not found", status: false });
+//     }
+
+//     if (!hotel.isAvailable === true) {
+//       return res
+//         .status(404)
+//         .json({ message: "Rooms not Available", status: false });
+//     }
+
+//     const ownerId = hotel.owner;
+
+//     const checkIn = new Date(checkInDate);
+//     const checkOut = new Date(checkOutDate);
+//     const today = new Date();
+
+//     // if (checkIn < today) {
+//     //   return res.status(400).json({
+//     //     message: "Check-in date must be in the future.",
+//     //     status: false,
+//     //   });
+//     // }
+
+//     if (checkOut <= checkIn) {
+//       return res.status(400).json({
+//         message: "Check-out date must be after check-in date.",
+//         status: false,
+//       });
+//     }
+
+//     const maxAdvanceDate = new Date();
+//     maxAdvanceDate.setMonth(maxAdvanceDate.getMonth() + 6);
+//     if (checkIn > maxAdvanceDate) {
+//       return res.status(400).json({
+//         message: "Bookings cannot be made more than 6 months in advance.",
+//         status: false,
+//       });
+//     }
+
+//     const existingBooking = await Booking.findOne({
+//       hotel: hotelId,
+//       room,
+//       status: { $nin: ["cancelled"] },
+//       $or: [{ checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }],
+//     });
+
+//     if (existingBooking) {
+//       return res.status(400).json({
+//         message: "Selected room is already booked for these dates.",
+//         status: false,
+//       });
+//     }
+
+//     // Generate a unique booking ID like "W9656870"
+//     const bookingId = `W${Math.floor(1000000 + Math.random() * 9000000)}`;
+
+//     const newBooking = new Booking({
+//       user: userId,
+//       ownerId,
+//       hotel: hotelId,
+//       room,
+//       adults,
+//       children: children || 0,
+//       checkInDate: checkIn,
+//       checkOutDate: checkOut,
+//       totalPrice,
+//       name,
+//       number,
+//       countryCode,
+//       bookingId,
+//     });
+
+//     await newBooking.save();
+
+//     // If a coupon is applied, update the coupon model
+//     if (couponId) {
+//       const coupon = await Coupon.findById(couponId);
+//       if (coupon) {
+//         if (!coupon.appliedCouponUsers.includes(userId)) {
+//           coupon.appliedCouponUsers.push(userId);
+//           await coupon.save();
+//         }
+//       }
+//     }
+//     res.status(201).json({
+//       message: "Booking successful!",
+//       booking: newBooking,
+//       status: true,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
 export const bookHotel = async (req, res) => {
   try {
     const {
@@ -105,13 +228,16 @@ export const bookHotel = async (req, res) => {
       room,
       adults,
       children,
-      name,
-      number,
-      countryCode,
       totalPrice,
       couponId,
+      name,
+      number,
+      countryCode
     } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.id;    
+
+    const user = await User.findById(userId);
+        
 
     if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
       return res.status(400).json({
@@ -137,14 +263,6 @@ export const bookHotel = async (req, res) => {
 
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
-    const today = new Date();
-
-    // if (checkIn < today) {
-    //   return res.status(400).json({
-    //     message: "Check-in date must be in the future.",
-    //     status: false,
-    //   });
-    // }
 
     if (checkOut <= checkIn) {
       return res.status(400).json({
@@ -176,7 +294,6 @@ export const bookHotel = async (req, res) => {
       });
     }
 
-    // Generate a unique booking ID like "W9656870"
     const bookingId = `W${Math.floor(1000000 + Math.random() * 9000000)}`;
 
     const newBooking = new Booking({
@@ -189,24 +306,50 @@ export const bookHotel = async (req, res) => {
       checkInDate: checkIn,
       checkOutDate: checkOut,
       totalPrice,
+      bookingId,
       name,
       number,
       countryCode,
-      bookingId,
     });
 
     await newBooking.save();
 
-    // If a coupon is applied, update the coupon model
     if (couponId) {
       const coupon = await Coupon.findById(couponId);
-      if (coupon) {
-        if (!coupon.appliedCouponUsers.includes(userId)) {
-          coupon.appliedCouponUsers.push(userId);
-          await coupon.save();
-        }
+      if (coupon && !coupon.appliedCouponUsers.includes(userId)) {
+        coupon.appliedCouponUsers.push(userId);
+        await coupon.save();
       }
     }
+
+    // Send SMS after booking is saved
+    const apiKey = process.env.PING4SMS_API_KEY;
+    const senderId = process.env.PING4SMS_SENDER_ID;
+    const templateId = process.env.PING4SMS_BOOKING_TEMPLATE_ID;
+    const route = 2;
+
+
+
+    const queryParams = qs.stringify({
+      key: apiKey,
+      sender: senderId,
+      number: number,
+      route,
+      sms: `Thank you for choosing Bookmipg Hotel! Your reservation is confirmed. Here are the details: Hotel: ${hotel.name} Date: ${checkInDate} to ${checkOutDate} Room Type: Private Guest Name: ${name} Booking ID: ${bookingId} Hope you enjoy your stay with us by BOOKMIPG`,
+      templateid: templateId,
+    });
+
+    const smsUrl = `https://site.ping4sms.com/api/smsapi?${queryParams}`;
+
+    axios
+      .get(smsUrl)
+      .then((response) => {
+        console.log("Booking SMS sent successfully:", response.data);
+      })
+      .catch((error) => {
+        console.error("Error sending booking SMS:", error.message);
+      });
+
     res.status(201).json({
       message: "Booking successful!",
       booking: newBooking,
@@ -849,8 +992,6 @@ export const getAllHotelsByFilter = async (req, res) => {
       const checkIn = new Date(checkInDate);
       const checkOut = new Date(checkOutDate);
 
-      
-
       const bookedRooms = await Booking.find({
         hotel: { $in: hotelIds },
         status: { $nin: ["cancelled"] },
@@ -917,7 +1058,6 @@ export const getAllHotelsByFilter = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 export const addFavorite = async (req, res) => {
   try {
@@ -1524,5 +1664,44 @@ export const searchHotels = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const hotelOwnerData = async (req, res) => {
+  try {
+    const ownerId = req.user.id;
+
+    const totalBookings = await Booking.countDocuments({ ownerId });
+    const totalHotel = await Hotel.countDocuments({ owner: ownerId });
+
+    const totalPendingBooking = await Booking.countDocuments({
+      ownerId,
+      status: "pending",
+    });
+    const totalCompletedBooking = await Booking.countDocuments({
+      ownerId,
+      status: "completed",
+    });
+    const totalCancelledBooking = await Booking.countDocuments({
+      ownerId,
+      status: "cancelled",
+    });
+    const totalUpcomingBooking = await Booking.countDocuments({
+      ownerId,
+      status: "upcoming",
+    });
+
+    res.status(200).json({
+      status: true,
+      totalBookings,
+      totalHotel,
+      totalPendingBooking,
+      totalCompletedBooking,
+      totalCancelledBooking,
+      totalUpcomingBooking,
+    });
+  } catch (error) {
+    console.error("Error in dashboardData:", error);
+    res.status(500).json({ message: "Server Error", status: false });
   }
 };

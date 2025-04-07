@@ -150,11 +150,11 @@ export const verifyOtp = async (req, res) => {
     await user.save();
 
     // ✅ Send Push Notification after saving firebaseToken
-    await sendNotification(
-      firebaseToken,
-      "Login Successful",
-      `Welcome back, ${user.name || "User"}!`
-    );
+    // await sendNotification(
+    //   firebaseToken,
+    //   "Login Successful",
+    //   `Welcome back, ${user.name || "User"}!`
+    // );
 
     let token = "";
     let userExit = false;
@@ -197,14 +197,14 @@ export const verifyOtp = async (req, res) => {
 export const resendOtp = async (req, res) => {
   try {
     const { phone, countryCode } = req.body;
-    if (!phone || !countryCode) {
+    if (!phone) {
       return res.status(400).json({
         message: "Phone number and country code are required",
         status: false,
       });
     }
 
-    let user = await User.findOne({ phone, countryCode });
+    let user = await User.findOne({ phone });
     if (!user) {
       return res.status(400).json({ message: "User not found", status: false });
     }
