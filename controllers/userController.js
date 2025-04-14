@@ -1705,3 +1705,32 @@ export const hotelOwnerData = async (req, res) => {
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
+
+export const getAllPolicy = async (req, res) => {
+  try {
+    const { type } = req.query;
+    if (!type) {
+      return res
+        .status(400)
+        .json({ message: "Policy type is required", status: false });
+    }
+
+    const policy = await Policy.findOne({ type });
+    if (!policy) {
+      return res
+        .status(404)
+        .json({ message: "Policy not found", status: false });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Policy fetched successfully", status: true, policy });
+  } catch (error) {
+    console.error("Error fetching policy:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
+  }
+};
