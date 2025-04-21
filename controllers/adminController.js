@@ -338,6 +338,85 @@ export const getPolicy = async (req, res) => {
   }
 };
 
+// export const addHotel = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       address,
+//       city,
+//       state,
+//       country,
+//       zipCode,
+//       pricePerNight,
+//       originalPricePerNight,
+//       taxesAmount,
+//       rating,
+//       amenities,
+//       facilities,
+//       latitude,
+//       longitude,
+//       room,
+//       description,
+//     } = req.body;
+//     const owner = req.user.id;
+
+//     if (
+//       !name ||
+//       !address ||
+//       !city ||
+//       !state ||
+//       !country ||
+//       !zipCode ||
+//       !pricePerNight ||
+//       !latitude ||
+//       !longitude ||
+//       !room ||
+//       !originalPricePerNight ||
+//       !taxesAmount
+//     ) {
+//       return res.status(400).json({
+//         message: "All required fields must be provided.",
+//         status: false,
+//       });
+//     }
+
+//     const imageUrls = req.files.map((file) =>
+//       file.path.split(path.sep).join("/")
+//     );
+
+//     const newHotel = new Hotel({
+//       name,
+//       address,
+//       city,
+//       state,
+//       country,
+//       zipCode,
+//       pricePerNight,
+//       originalPricePerNight,
+//       taxesAmount,
+//       room,
+//       description,
+//       rating: rating || 0,
+//       amenities: amenities ? amenities.split(",") : [],
+//       facilities: facilities ? facilities.split(",") : [],
+//       images: imageUrls,
+//       latitude,
+//       longitude,
+//       owner,
+//     });
+
+//     await newHotel.save();
+//     res.status(200).json({
+//       message: "Hotel added successfully!",
+//       hotel: newHotel,
+//       status: true,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+
 export const addHotel = async (req, res) => {
   try {
     const {
@@ -357,6 +436,8 @@ export const addHotel = async (req, res) => {
       longitude,
       room,
       description,
+      roomTypes,
+      
     } = req.body;
     const owner = req.user.id;
 
@@ -372,7 +453,8 @@ export const addHotel = async (req, res) => {
       !longitude ||
       !room ||
       !originalPricePerNight ||
-      !taxesAmount
+      !taxesAmount ||
+      !roomTypes
     ) {
       return res.status(400).json({
         message: "All required fields must be provided.",
@@ -383,6 +465,9 @@ export const addHotel = async (req, res) => {
     const imageUrls = req.files.map((file) =>
       file.path.split(path.sep).join("/")
     );
+
+    const parsedRoomTypes = typeof roomTypes === "string" ? JSON.parse(roomTypes) : roomTypes;
+
 
     const newHotel = new Hotel({
       name,
@@ -403,6 +488,7 @@ export const addHotel = async (req, res) => {
       latitude,
       longitude,
       owner,
+      roomTypes: parsedRoomTypes,
     });
 
     await newHotel.save();
@@ -415,6 +501,7 @@ export const addHotel = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const updateHotel = async (req, res) => {
   try {
@@ -436,7 +523,8 @@ export const updateHotel = async (req, res) => {
       hotelId,
       room,
       description,
-      existingImages, // ✅ Purani images ko preserve karne ke liye
+      existingImages,
+      roomTypes
     } = req.body;
 
     const owner = req.user.id;
@@ -476,6 +564,11 @@ export const updateHotel = async (req, res) => {
     hotel.facilities = facilities ? facilities.split(",") : hotel.facilities;
     hotel.latitude = latitude || hotel.latitude;
     hotel.longitude = longitude || hotel.longitude;
+
+    if (roomTypes) {
+      hotel.roomTypes =
+        typeof roomTypes === "string" ? JSON.parse(roomTypes) : roomTypes;
+    }
 
     // ✅ Preserve old images from frontend
     let updatedImages = existingImages

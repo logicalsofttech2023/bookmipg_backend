@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
     coupons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Coupon" }],
+    password: { type: String },
+
   },
   { timestamps: true }
 );

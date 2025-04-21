@@ -261,6 +261,7 @@ export const completeRegistration = async (req, res) => {
       dob,
       gender,
       maritalStatus,
+      password
     } = req.body;
     const profileImage = req.file ? req.file.path : "";
 
@@ -286,6 +287,10 @@ export const completeRegistration = async (req, res) => {
     user.profileImage = profileImage;
     user.isVerified = false;
     user.firebaseToken = firebaseToken || "";
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
     await user.save();
 
     const token = generateJwtToken(user);
@@ -298,6 +303,56 @@ export const completeRegistration = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Server Error", status: false });
+  }
+};
+
+export const VendorLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+        status: false,
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        status: false,
+      });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+        status: false,
+      });
+    }
+
+    // Generate JWT token
+    const token = generateJwtToken(user);
+    res.status(200).json({
+      message: "Login successful",
+      status: true,
+      token,
+      data: user,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error",
+      status: false,
+    });
   }
 };
 
