@@ -40,7 +40,8 @@ import {
   verifyHotelByOwner,
   getHotelOwnerPolicyByOwnerId,
   updateHotelOwnerPolicy,
-  updateCheckInCheckOutTimes
+  updateCheckInCheckOutTimes,
+  getHotelsByOwnerIdInAdmin
 } from "../controllers/adminController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -167,6 +168,8 @@ router.post("/updateHotelOwnerPolicy", authMiddleware, updateHotelOwnerPolicy);
 
 
 router.post("/updateCheckInCheckOutTimes", authMiddleware, updateCheckInCheckOutTimes);
+
+router.get("/getHotelsByOwnerIdInAdmin", authMiddleware, getHotelsByOwnerIdInAdmin);
 
 
 export default router;

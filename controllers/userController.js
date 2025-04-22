@@ -232,12 +232,11 @@ export const bookHotel = async (req, res) => {
       couponId,
       name,
       number,
-      countryCode
+      countryCode,
     } = req.body;
-    const userId = req.user.id;    
+    const userId = req.user.id;
 
     const user = await User.findById(userId);
-        
 
     if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
       return res.status(400).json({
@@ -327,8 +326,6 @@ export const bookHotel = async (req, res) => {
     const senderId = process.env.PING4SMS_SENDER_ID;
     const templateId = process.env.PING4SMS_BOOKING_TEMPLATE_ID;
     const route = 2;
-
-
 
     const queryParams = qs.stringify({
       key: apiKey,
@@ -1473,22 +1470,45 @@ export const getTrendingHotels = async (req, res) => {
 
 export const getUserCoupons = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req?.user?.id;
 
-    // Fetch user with populated coupons
-    const user = await User.findById(userId).populate("coupons");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // Fetch all active public coupons
+    const allPublicCoupons = await Coupon.find({ type: "public", isActive: true });
 
-    // Filter out coupons where the user has already applied
-    const availableCoupons = user.coupons.filter(
-      (coupon) => !coupon.appliedCouponUsers.includes(userId)
-    );
+    let assignedAvailableCoupons = [];
+    let filteredPublicCoupons = allPublicCoupons;
 
-    res.status(200).json({ coupons: availableCoupons });
+    if (userId) {
+      const user = await User.findById(userId).populate("coupons");
+
+      if (user) {
+        // Filter out assigned coupons already applied by the user
+        assignedAvailableCoupons = user.coupons.filter(
+          (coupon) => !coupon.appliedCouponUsers.includes(userId)
+        );
+
+        // Also filter public coupons already applied
+        filteredPublicCoupons = allPublicCoupons.filter(
+          (coupon) => !coupon.appliedCouponUsers.includes(userId)
+        );
+      }
+    }
+
+    // Merge public and assigned coupons, avoiding duplicates
+    const allCouponsMap = new Map();
+
+    [...filteredPublicCoupons, ...assignedAvailableCoupons].forEach((coupon) => {
+      allCouponsMap.set(coupon._id.toString(), coupon);
+    });
+
+    const mergedCoupons = Array.from(allCouponsMap.values());
+
+    res.status(200).json({ coupons: mergedCoupons });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const applyUserCoupon = async (req, res) => {
   try {
@@ -1498,7 +1518,7 @@ export const applyUserCoupon = async (req, res) => {
     if (!code || !originalPrice) {
       return res
         .status(400)
-        .json({ message: "Field required code, originalPrice", status: false });
+        .json({ message: "Field required: code, originalPrice", status: false });
     }
 
     // Find user and populate coupons
@@ -1506,12 +1526,19 @@ export const applyUserCoupon = async (req, res) => {
     if (!user)
       return res.status(404).json({ message: "User not found", status: false });
 
-    // Find the assigned coupon
-    const coupon = user.coupons.find((coupon) => coupon.code === code);
-    if (!coupon)
+    // Try to find coupon in assigned coupons
+    let coupon = user.coupons.find((coupon) => coupon.code === code);
+
+    // If not found in assigned, try public coupons
+    if (!coupon) {
+      coupon = await Coupon.findOne({ code, type: "public", isActive: true });
+    }
+
+    if (!coupon) {
       return res
         .status(404)
-        .json({ message: "Coupon not found for this user", status: false });
+        .json({ message: "Coupon not found", status: false });
+    }
 
     // Check expiry date
     if (new Date() > new Date(coupon.expiryDate)) {
@@ -1520,21 +1547,30 @@ export const applyUserCoupon = async (req, res) => {
         .json({ message: "Coupon has expired", status: false });
     }
 
-    // Calculate discount
-    let discountAmount = (originalPrice * coupon.discountPercentage) / 100;
+    // Check if user already applied the coupon
+    if (coupon.appliedCouponUsers.includes(userId)) {
+      return res
+        .status(400)
+        .json({ message: "Coupon already applied", status: false });
+    }
 
+    // Calculate discount
+    const discountAmount = (originalPrice * coupon.discountPercentage) / 100;
     const discountedPrice = originalPrice - discountAmount;
 
     res.status(200).json({
-      message: "Coupon applied successfully",
+      message: "Coupon is valid",
       discountAmount,
       discountedPrice,
+      couponId: coupon._id, // send couponId to use in booking
       status: true,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 export const searchHotels = async (req, res) => {
   try {
@@ -1744,11 +1780,130 @@ export const getOwnerById = async (req, res) => {
       return res.status(404).json({ message: "User not found", status: false });
     }
 
-    res
-      .status(200)
-      .json({ message: "User fetched successfully", status: true, data: user, totalHotel });
+    res.status(200).json({
+      message: "User fetched successfully",
+      status: true,
+      data: user,
+      totalHotel,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
 
+// export const getTransactionByOwnerId = async (req, res) => {
+//   try {
+//     const ownerId = req.user.id;
+//     const { startDate, endDate } = req.query;
+
+//     const filter = {
+//       ownerId: ownerId,
+//       status: "completed",
+//     };
+    
+//     if (startDate || endDate) {
+//       filter.checkInDate = {};
+//       if (startDate) filter.checkInDate.$gte = new Date(startDate);
+//       if (endDate) {
+//         const end = new Date(endDate);
+//         end.setUTCHours(23, 59, 59, 999);
+//         filter.checkInDate.$lte = end;
+//       }
+//     }
+
+//     const bookings = await Booking.find(filter).populate("hotel");
+
+//     if (!bookings.length) {
+//       return res
+//         .status(404)
+//         .json({ message: "No bookings found", status: false });
+//     }
+
+//     let totalEarnings = 0;
+
+//     bookings.forEach((booking) => {
+//       const price = booking.totalPrice || 0;
+//       totalEarnings += price;
+//     });
+
+//     res.status(200).json({
+//       message: "Earnings calculated successfully",
+//       status: true,
+//       totalEarnings,
+//       bookings,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+
+export const getTransactionByOwnerId = async (req, res) => {
+  try {
+    const ownerId = req.user.id;
+    const { startDate, endDate, month, year } = req.query;
+
+    console.log(month);
+    console.log(year);
+    
+
+    const filter = {
+      ownerId,
+      status: "completed",
+    };
+
+    // Date range filter
+    if (startDate || endDate) {
+      filter.checkInDate = {};
+      if (startDate) filter.checkInDate.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        filter.checkInDate.$lte = end;
+      }
+    } else if (month && year) {
+      // If both month and year are selected
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+
+      filter.checkInDate = {
+        $gte: new Date(yearNum, monthNum - 1, 1),
+        $lte: new Date(yearNum, monthNum, 0, 23, 59, 59, 999),
+      };
+    } else if (year && !month) {
+      // If only year is selected
+      const yearNum = parseInt(year);
+      filter.checkInDate = {
+        $gte: new Date(yearNum, 0, 1),
+        $lte: new Date(yearNum, 11, 31, 23, 59, 59, 999),
+      };
+    } else if (month && !year) {
+      // If only month is selected, use current year
+      const monthNum = parseInt(month);
+      const currentYear = new Date().getFullYear();
+      filter.checkInDate = {
+        $gte: new Date(currentYear, monthNum - 1, 1),
+        $lte: new Date(currentYear, monthNum, 0, 23, 59, 59, 999),
+      };
+    }
+
+    const bookings = await Booking.find(filter).populate("hotel");
+    const totalBookings = bookings.length;
+
+    if (!totalBookings) {
+      return res.status(404).json({ message: "No bookings found", status: false });
+    }
+
+    const totalEarnings = bookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+    res.status(200).json({
+      message: "Data retrieved successfully",
+      status: true,
+      totalEarnings,
+      totalBookings,
+      bookings,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

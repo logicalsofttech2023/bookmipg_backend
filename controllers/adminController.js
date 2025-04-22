@@ -634,7 +634,43 @@ export const getByHotelId = async (req, res) => {
 export const getHotelsByOwnerId = async (req, res) => {
   try {
     const ownerId = req.user?.id;
-    let { page = 1, limit = 10, search = "" } = req.query;
+    let { page = 1, limit = 10, search = "",  } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    // Search filter
+    let searchFilter = { owner: ownerId };
+    if (search) {
+      searchFilter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Fetch paginated hotels
+    const hotels = await Hotel.find(searchFilter)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const totalHotels = await Hotel.countDocuments(searchFilter);
+
+    res.status(200).json({
+      message: "Get hotels successfully",
+      status: true,
+      data: hotels,
+      totalHotels,
+      totalPages: Math.ceil(totalHotels / limit),
+      currentPage: page,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getHotelsByOwnerIdInAdmin = async (req, res) => {
+  try {
+    let { page = 1, limit = 10, search = "", ownerId } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -787,6 +823,7 @@ export const createCoupon = async (req, res) => {
       title,
       description,
       isActive,
+      type 
     } = req.body;
 
     // Check if coupon already exists
@@ -801,6 +838,7 @@ export const createCoupon = async (req, res) => {
       title,
       description,
       isActive,
+      type
     });
     await newCoupon.save();
 
@@ -822,6 +860,7 @@ export const updateCoupon = async (req, res) => {
       title,
       description,
       isActive,
+      type, // <- add this
     } = req.body;
 
     // Check if coupon exists
@@ -839,6 +878,7 @@ export const updateCoupon = async (req, res) => {
     existingCoupon.description = description || existingCoupon.description;
     existingCoupon.isActive =
       isActive !== undefined ? isActive : existingCoupon.isActive;
+    existingCoupon.type = type || existingCoupon.type; // <- set type here
 
     await existingCoupon.save();
 
@@ -850,6 +890,7 @@ export const updateCoupon = async (req, res) => {
   }
 };
 
+
 export const deleteCoupon = async (req, res) => {
   try {
     const { id } = req.body;
@@ -860,6 +901,13 @@ export const deleteCoupon = async (req, res) => {
       return res.status(404).json({ message: "Coupon not found" });
     }
 
+    // Remove the coupon ID from all users' coupons array
+    await User.updateMany(
+      { coupons: id },
+      { $pull: { coupons: id } }
+    );
+
+    // Delete the coupon
     await Coupon.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Coupon deleted successfully" });
@@ -867,6 +915,7 @@ export const deleteCoupon = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const getCouponById = async (req, res) => {
   try {

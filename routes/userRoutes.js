@@ -28,6 +28,7 @@ import {
   hotelOwnerData,
   getAllPolicy,
   getOwnerById,
+  getTransactionByOwnerId,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import optionalMiddleware from "../middlewares/optionalMiddleware.js";
@@ -87,7 +88,7 @@ router.post(
 
 router.get("/getTrendingHotels", getTrendingHotels);
 
-router.get("/getUserCoupons", authMiddleware, getUserCoupons);
+router.get("/getUserCoupons", optionalMiddleware, getUserCoupons);
 
 router.post("/applyUserCoupon", authMiddleware, applyUserCoupon);
 
@@ -103,7 +104,6 @@ router.get("/getAllPolicy", getAllPolicy);
 
 router.get("/getOwnerById", authMiddleware, getOwnerById);
 
-
-
+router.get("/getTransactionByOwnerId", authMiddleware, getTransactionByOwnerId);
 
 export default router;

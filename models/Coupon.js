@@ -8,6 +8,11 @@ const couponSchema = new mongoose.Schema(
     description: { type: String, required: true },
     expiryDate: { type: Date, required: true },
     isActive: { type: Boolean, default: true },
+    type: {
+      type: String,
+      enum: ["public", "assigned"],
+      default: "public",
+    },
     assignedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     appliedCouponUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
