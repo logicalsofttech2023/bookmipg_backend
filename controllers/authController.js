@@ -318,6 +318,9 @@ export const VendorLogin = async (req, res) => {
       });
     }
 
+    console.log(req.body);
+    
+
     // Find user by userEmail
     const user = await User.findOne({
       $or: [{ userEmail: userEmail }, { phone: userEmail }],

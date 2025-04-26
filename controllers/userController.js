@@ -687,6 +687,43 @@ export const getAllHotelsForWeb = async (req, res) => {
   }
 };
 
+// export const getHotelById = async (req, res) => {
+//   try {
+//     const { hotelId } = req.query;
+//     const userId = req.user?.id;
+
+//     if (!hotelId) {
+//       return res.status(400).json({ message: "Hotel ID is required." });
+//     }
+
+//     const hotel = await Hotel.findById(hotelId);
+
+//     if (!hotel) {
+//       return res.status(404).json({ message: "Hotel not found." });
+//     }
+
+//     // Get review count for the hotel
+//     const reviewCount = await RatingReview.countDocuments({ hotel: hotelId });
+
+//     // Check if the hotel is in user's favorites
+//     let isFavorite = false;
+//     if (userId) {
+//       const favorite = await Favorite.findOne({ user: userId, hotel: hotelId });
+
+//       isFavorite = !!favorite;
+//     }
+
+//     res.status(200).json({
+//       message: "Get hotel successfully",
+//       status: true,
+//       hotel: { ...hotel._doc, reviewCount, isFavorite },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+
 export const getHotelById = async (req, res) => {
   try {
     const { hotelId } = req.query;
@@ -713,10 +750,55 @@ export const getHotelById = async (req, res) => {
       isFavorite = !!favorite;
     }
 
+    // Define default room type
+    const defaultRoomType = {
+      type: hotel.type,
+      typeAmenities: hotel.amenities,
+      size: hotel.size,
+      bedType: hotel.bedType,
+      capacity: hotel.capacity,
+      price: hotel.pricePerNight,
+      originalPrice: hotel.originalPricePerNight,
+      description: hotel.description,
+      smokingAllowed: hotel.smokingAllowed,
+      _id: hotel._id,
+      defaultSelected: true, 
+    };
+
+    // const updatedRoomTypes = [defaultRoomType, ...(hotel.roomTypes || [])];
+
+    const {
+      amenities,
+      size,
+      bedType,
+      capacity,
+      pricePerNight,
+      originalPricePerNight,
+      description,
+      smokingAllowed,
+      roomTypes,
+      ...hotelWithoutRepeatedFields
+    } = hotel._doc;
+
+    const alreadyExists = (hotel.roomTypes || []).some(
+      (room) => room.type.toLowerCase() === hotel.type.toLowerCase()
+    );
+    
+    const updatedRoomTypes = alreadyExists
+      ? [...(hotel.roomTypes || [])]
+      : [defaultRoomType, ...(hotel.roomTypes || [])];
+    
+
+
     res.status(200).json({
       message: "Get hotel successfully",
       status: true,
-      hotel: { ...hotel._doc, reviewCount, isFavorite },
+      hotel: {
+        ...hotelWithoutRepeatedFields,
+        reviewCount,
+        isFavorite,
+        roomTypes: updatedRoomTypes
+      },
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -1509,7 +1591,6 @@ export const getUserCoupons = async (req, res) => {
   }
 };
 
-
 export const applyUserCoupon = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1569,8 +1650,6 @@ export const applyUserCoupon = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
 
 export const searchHotels = async (req, res) => {
   try {
@@ -1790,53 +1869,6 @@ export const getOwnerById = async (req, res) => {
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
-
-// export const getTransactionByOwnerId = async (req, res) => {
-//   try {
-//     const ownerId = req.user.id;
-//     const { startDate, endDate } = req.query;
-
-//     const filter = {
-//       ownerId: ownerId,
-//       status: "completed",
-//     };
-    
-//     if (startDate || endDate) {
-//       filter.checkInDate = {};
-//       if (startDate) filter.checkInDate.$gte = new Date(startDate);
-//       if (endDate) {
-//         const end = new Date(endDate);
-//         end.setUTCHours(23, 59, 59, 999);
-//         filter.checkInDate.$lte = end;
-//       }
-//     }
-
-//     const bookings = await Booking.find(filter).populate("hotel");
-
-//     if (!bookings.length) {
-//       return res
-//         .status(404)
-//         .json({ message: "No bookings found", status: false });
-//     }
-
-//     let totalEarnings = 0;
-
-//     bookings.forEach((booking) => {
-//       const price = booking.totalPrice || 0;
-//       totalEarnings += price;
-//     });
-
-//     res.status(200).json({
-//       message: "Earnings calculated successfully",
-//       status: true,
-//       totalEarnings,
-//       bookings,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
-
 
 export const getTransactionByOwnerId = async (req, res) => {
   try {

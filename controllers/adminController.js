@@ -14,6 +14,8 @@ import Favorite from "../models/Favorite.js";
 import Contact from "../models/ContactUs.js";
 import bcrypt from "bcrypt";
 import Admin from "../models/Admin.js";
+import BestCity from "../models/BestCity.js";
+
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -416,7 +418,6 @@ export const getPolicy = async (req, res) => {
 //   }
 // };
 
-
 export const addHotel = async (req, res) => {
   try {
     const {
@@ -437,7 +438,11 @@ export const addHotel = async (req, res) => {
       room,
       description,
       roomTypes,
-      
+      bedType,
+      size,
+      type,
+      capacity,
+      smokingAllowed
     } = req.body;
     const owner = req.user.id;
 
@@ -466,8 +471,8 @@ export const addHotel = async (req, res) => {
       file.path.split(path.sep).join("/")
     );
 
-    const parsedRoomTypes = typeof roomTypes === "string" ? JSON.parse(roomTypes) : roomTypes;
-
+    const parsedRoomTypes =
+      typeof roomTypes === "string" ? JSON.parse(roomTypes) : roomTypes;
 
     const newHotel = new Hotel({
       name,
@@ -489,6 +494,11 @@ export const addHotel = async (req, res) => {
       longitude,
       owner,
       roomTypes: parsedRoomTypes,
+      bedType,
+      size,
+      type,
+      capacity,
+      smokingAllowed
     });
 
     await newHotel.save();
@@ -501,7 +511,6 @@ export const addHotel = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 export const updateHotel = async (req, res) => {
   try {
@@ -524,7 +533,12 @@ export const updateHotel = async (req, res) => {
       room,
       description,
       existingImages,
-      roomTypes
+      roomTypes,
+      bedType,
+      size,
+      type,
+      capacity,
+      smokingAllowed
     } = req.body;
 
     const owner = req.user.id;
@@ -564,6 +578,11 @@ export const updateHotel = async (req, res) => {
     hotel.facilities = facilities ? facilities.split(",") : hotel.facilities;
     hotel.latitude = latitude || hotel.latitude;
     hotel.longitude = longitude || hotel.longitude;
+    hotel.bedType = bedType || hotel.bedType;
+    hotel.size = size || hotel.size;
+    hotel.type = type || hotel.type;
+    hotel.capacity = capacity || hotel.capacity;
+    hotel.smokingAllowed = smokingAllowed || hotel.smokingAllowed;
 
     if (roomTypes) {
       hotel.roomTypes =
@@ -634,7 +653,7 @@ export const getByHotelId = async (req, res) => {
 export const getHotelsByOwnerId = async (req, res) => {
   try {
     const ownerId = req.user?.id;
-    let { page = 1, limit = 10, search = "",  } = req.query;
+    let { page = 1, limit = 10, search = "" } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -823,7 +842,7 @@ export const createCoupon = async (req, res) => {
       title,
       description,
       isActive,
-      type 
+      type,
     } = req.body;
 
     // Check if coupon already exists
@@ -838,7 +857,7 @@ export const createCoupon = async (req, res) => {
       title,
       description,
       isActive,
-      type
+      type,
     });
     await newCoupon.save();
 
@@ -890,7 +909,6 @@ export const updateCoupon = async (req, res) => {
   }
 };
 
-
 export const deleteCoupon = async (req, res) => {
   try {
     const { id } = req.body;
@@ -902,10 +920,7 @@ export const deleteCoupon = async (req, res) => {
     }
 
     // Remove the coupon ID from all users' coupons array
-    await User.updateMany(
-      { coupons: id },
-      { $pull: { coupons: id } }
-    );
+    await User.updateMany({ coupons: id }, { $pull: { coupons: id } });
 
     // Delete the coupon
     await Coupon.findByIdAndDelete(id);
@@ -915,7 +930,6 @@ export const deleteCoupon = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 export const getCouponById = async (req, res) => {
   try {
@@ -1825,9 +1839,11 @@ export const verifyHotelByOwner = async (req, res) => {
 
 export const getHotelOwnerPolicyByOwnerId = async (req, res) => {
   try {
-    const ownerId = req.user.id;    
+    const ownerId = req.user.id;
 
-    const hotelOwnerPolicy = await HotelOwnerPolicy.find({ hotelOwnerId: ownerId });
+    const hotelOwnerPolicy = await HotelOwnerPolicy.find({
+      hotelOwnerId: ownerId,
+    });
 
     if (!hotelOwnerPolicy || hotelOwnerPolicy.length === 0) {
       return res.status(404).json({
@@ -1984,6 +2000,106 @@ export const updateCheckInCheckOutTimes = async (req, res) => {
   }
 };
 
+export const createBestCity = async (req, res) => {
+  try {
+    const { cityName, hotelCount } = req.body;
+    const image = req.file ? req.file.path.split(path.sep).join("/") : "";
+    const bestCity = new BestCity({ image, cityName, hotelCount });
+    await bestCity.save();
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Best City created successfully",
+        data: bestCity,
+      });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
+export const updateBestCity = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { cityName, hotelCount } = req.body;
+    const image = req.file ? req.file.path.split(path.sep).join("/") : null;
 
+    const updateData = {
+      cityName,
+      hotelCount,
+    };
 
+    if (image) {
+      updateData.image = image;
+    }
+
+    const updatedCity = await BestCity.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!updatedCity) {
+      return res.status(404).json({
+        success: false,
+        message: "Best City not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Best City updated successfully",
+      data: updatedCity,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getAllBestCities = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    const query = {};
+
+    if (search) {
+      query.cityName = { $regex: search, $options: "i" }; // Case-insensitive search
+    }
+
+    const total = await BestCity.countDocuments(query);
+
+    const bestCities = await BestCity.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      data: bestCities,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getBestCityById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const bestCity = await BestCity.findById(id);
+    if (!bestCity) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Best City not found" });
+    }
+    res.status(200).json({ success: true, data: bestCity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

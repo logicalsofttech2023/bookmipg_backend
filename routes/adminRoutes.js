@@ -41,7 +41,11 @@ import {
   getHotelOwnerPolicyByOwnerId,
   updateHotelOwnerPolicy,
   updateCheckInCheckOutTimes,
-  getHotelsByOwnerIdInAdmin
+  getHotelsByOwnerIdInAdmin,
+  createBestCity,
+  updateBestCity,
+  getBestCityById,
+  getAllBestCities
 } from "../controllers/adminController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadHotel } from "../middlewares/uploadMiddleware.js";
@@ -170,6 +174,25 @@ router.post("/updateHotelOwnerPolicy", authMiddleware, updateHotelOwnerPolicy);
 router.post("/updateCheckInCheckOutTimes", authMiddleware, updateCheckInCheckOutTimes);
 
 router.get("/getHotelsByOwnerIdInAdmin", authMiddleware, getHotelsByOwnerIdInAdmin);
+
+
+router.post(
+  "/createBestCity",
+  authMiddleware,
+  uploadHotel.single("image"),
+  createBestCity
+);
+
+router.post(
+  "/updateBestCity",
+  authMiddleware,
+  uploadHotel.single("image"),
+  updateBestCity
+);
+
+router.get("/getAllBestCities", getAllBestCities);
+
+router.get("/getBestCityById", authMiddleware, getBestCityById);
 
 
 export default router;

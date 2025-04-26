@@ -25,12 +25,17 @@ const hotelSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    bedType: { type: String },
+    size: { type: String },
+    type: { type: String },
+    capacity: { type: String, default: "2" },
+    smokingAllowed: { type: Boolean, default: false },
     adminVerify: { type: Boolean, default: false },
     roomTypes: [
       {
         type: {
           type: String,
-          enum: ["Deluxe", "Classic"],
+          enum: ["Deluxe", "luxury", "Classic"],
         },
         typeAmenities: [{ type: String }],
         size: { type: String },

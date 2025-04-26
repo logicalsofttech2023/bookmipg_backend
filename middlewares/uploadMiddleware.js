@@ -48,18 +48,18 @@ const fileFilter = (req, file, cb) => {
 export const uploadProfile = multer({ 
     storage: profileStorage, 
     fileFilter,
-    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+    limits: { fileSize: 100 * 1024 * 1024 } // 20MB limit
 });
 
 // Hotel image upload (multiple images allowed)
 export const uploadHotel = multer({ 
     storage: hotelStorage, 
     fileFilter,
-    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+    limits: { fileSize: 100 * 1024 * 1024 } // 20MB limit
 });
 
 export const uploadRating = multer({ 
     storage: ratingStorage, 
     fileFilter,
-    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+    limits: { fileSize: 100 * 1024 * 1024 } // 20MB limit
 });
