@@ -119,7 +119,7 @@ export const generateOtp = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Server Error", status: false });
+    res.status(500).json({ message: "Server Error", status: false, error });
   }
 };
 
@@ -190,7 +190,7 @@ export const verifyOtp = async (req, res) => {
       data: formattedUser,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", status: false });
+    res.status(500).json({ message: "Server Error", status: false, error });
   }
 };
 
@@ -246,7 +246,7 @@ export const resendOtp = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server Error", status: false });
+    res.status(500).json({ message: "Server Error", status: false, error });
   }
 };
 
@@ -302,7 +302,7 @@ export const completeRegistration = async (req, res) => {
       data: user,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", status: false });
+    res.status(500).json({ message: "Server Error", status: false, error });
   }
 };
 
