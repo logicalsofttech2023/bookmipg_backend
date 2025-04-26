@@ -733,7 +733,10 @@ export const getHotelById = async (req, res) => {
       return res.status(400).json({ message: "Hotel ID is required." });
     }
 
-    const hotel = await Hotel.findById(hotelId);
+    const hotel = await Hotel.findById(hotelId).populate({
+      path: "owner",
+      select: "phone"
+    });
 
     if (!hotel) {
       return res.status(404).json({ message: "Hotel not found." });
