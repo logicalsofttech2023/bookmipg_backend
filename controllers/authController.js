@@ -165,7 +165,7 @@ export const verifyOtp = async (req, res) => {
 
     const formattedUser = {
       _id: user._id,
-      email: user.email || "",
+      userEmail: user.userEmail || "",
       phone: user.phone || "",
       countryCode: user.countryCode || "",
       profileImage: user.profileImage || "",
@@ -255,7 +255,7 @@ export const completeRegistration = async (req, res) => {
     const {
       phone,
       name,
-      email,
+      userEmail,
       role,
       firebaseToken,
       dob,
@@ -279,7 +279,7 @@ export const completeRegistration = async (req, res) => {
     }
 
     user.name = name;
-    user.email = email;
+    user.userEmail = userEmail;
     user.role = role;
     user.dob = dob;
     user.gender = gender;
@@ -308,19 +308,19 @@ export const completeRegistration = async (req, res) => {
 
 export const VendorLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { userEmail, password } = req.body;
 
     // Validate
-    if (!email || !password) {
+    if (!userEmail || !password) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "userEmail and password are required",
         status: false,
       });
     }
 
-    // Find user by email
+    // Find user by userEmail
     const user = await User.findOne({
-      $or: [{ email: email }, { phone: email }],
+      $or: [{ userEmail: userEmail }, { phone: userEmail }],
     });
 
     if (!user) {
@@ -361,7 +361,7 @@ export const VendorLogin = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email, dob, gender, maritalStatus } = req.body;
+    const { name, userEmail, dob, gender, maritalStatus } = req.body;
 
     // Fixing profile image path
     const profileImage = req.file
@@ -375,7 +375,7 @@ export const updateProfile = async (req, res) => {
 
     // Update fields
     if (name) user.name = name;
-    if (email) user.email = email;
+    if (userEmail) user.userEmail = userEmail;
     if (dob) user.dob = dob;
     if (gender) user.gender = gender;
     if (maritalStatus) user.maritalStatus = maritalStatus;
