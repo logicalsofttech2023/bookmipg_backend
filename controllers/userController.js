@@ -98,126 +98,6 @@ export const getReviewsByHotelId = async (req, res) => {
   }
 };
 
-// export const bookHotel = async (req, res) => {
-//   try {
-//     const {
-//       hotelId,
-//       checkInDate,
-//       checkOutDate,
-//       room,
-//       adults,
-//       children,
-//       name,
-//       number,
-//       countryCode,
-//       totalPrice,
-//       couponId,
-//     } = req.body;
-//     const userId = req.user.id;
-
-//     if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
-//       return res.status(400).json({
-//         message: "All fields are required (adults cannot be zero)",
-//         status: false,
-//       });
-//     }
-
-//     const hotel = await Hotel.findById(hotelId);
-//     if (!hotel) {
-//       return res
-//         .status(404)
-//         .json({ message: "Hotel not found", status: false });
-//     }
-
-//     if (!hotel.isAvailable === true) {
-//       return res
-//         .status(404)
-//         .json({ message: "Rooms not Available", status: false });
-//     }
-
-//     const ownerId = hotel.owner;
-
-//     const checkIn = new Date(checkInDate);
-//     const checkOut = new Date(checkOutDate);
-//     const today = new Date();
-
-//     // if (checkIn < today) {
-//     //   return res.status(400).json({
-//     //     message: "Check-in date must be in the future.",
-//     //     status: false,
-//     //   });
-//     // }
-
-//     if (checkOut <= checkIn) {
-//       return res.status(400).json({
-//         message: "Check-out date must be after check-in date.",
-//         status: false,
-//       });
-//     }
-
-//     const maxAdvanceDate = new Date();
-//     maxAdvanceDate.setMonth(maxAdvanceDate.getMonth() + 6);
-//     if (checkIn > maxAdvanceDate) {
-//       return res.status(400).json({
-//         message: "Bookings cannot be made more than 6 months in advance.",
-//         status: false,
-//       });
-//     }
-
-//     const existingBooking = await Booking.findOne({
-//       hotel: hotelId,
-//       room,
-//       status: { $nin: ["cancelled"] },
-//       $or: [{ checkInDate: { $lt: checkOut }, checkOutDate: { $gt: checkIn } }],
-//     });
-
-//     if (existingBooking) {
-//       return res.status(400).json({
-//         message: "Selected room is already booked for these dates.",
-//         status: false,
-//       });
-//     }
-
-//     // Generate a unique booking ID like "W9656870"
-//     const bookingId = `W${Math.floor(1000000 + Math.random() * 9000000)}`;
-
-//     const newBooking = new Booking({
-//       user: userId,
-//       ownerId,
-//       hotel: hotelId,
-//       room,
-//       adults,
-//       children: children || 0,
-//       checkInDate: checkIn,
-//       checkOutDate: checkOut,
-//       totalPrice,
-//       name,
-//       number,
-//       countryCode,
-//       bookingId,
-//     });
-
-//     await newBooking.save();
-
-//     // If a coupon is applied, update the coupon model
-//     if (couponId) {
-//       const coupon = await Coupon.findById(couponId);
-//       if (coupon) {
-//         if (!coupon.appliedCouponUsers.includes(userId)) {
-//           coupon.appliedCouponUsers.push(userId);
-//           await coupon.save();
-//         }
-//       }
-//     }
-//     res.status(201).json({
-//       message: "Booking successful!",
-//       booking: newBooking,
-//       status: true,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 
 export const bookHotel = async (req, res) => {
   try {
@@ -233,6 +113,7 @@ export const bookHotel = async (req, res) => {
       name,
       number,
       countryCode,
+      roomType,
     } = req.body;
     const userId = req.user.id;
 
@@ -309,6 +190,7 @@ export const bookHotel = async (req, res) => {
       name,
       number,
       countryCode,
+      roomType,
     });
 
     await newBooking.save();
@@ -723,7 +605,6 @@ export const getAllHotelsForWeb = async (req, res) => {
 //   }
 // };
 
-
 export const getHotelById = async (req, res) => {
   try {
     const { hotelId } = req.query;
@@ -735,7 +616,7 @@ export const getHotelById = async (req, res) => {
 
     const hotel = await Hotel.findById(hotelId).populate({
       path: "owner",
-      select: "phone"
+      select: "phone",
     });
 
     if (!hotel) {
@@ -765,7 +646,7 @@ export const getHotelById = async (req, res) => {
       description: hotel.description,
       smokingAllowed: hotel.smokingAllowed,
       _id: hotel._id,
-      defaultSelected: true, 
+      defaultSelected: true,
     };
 
     // const updatedRoomTypes = [defaultRoomType, ...(hotel.roomTypes || [])];
@@ -786,12 +667,10 @@ export const getHotelById = async (req, res) => {
     const alreadyExists = (hotel.roomTypes || []).some(
       (room) => room.type.toLowerCase() === hotel.type.toLowerCase()
     );
-    
+
     const updatedRoomTypes = alreadyExists
       ? [...(hotel.roomTypes || [])]
       : [defaultRoomType, ...(hotel.roomTypes || [])];
-    
-
 
     res.status(200).json({
       message: "Get hotel successfully",
@@ -800,7 +679,7 @@ export const getHotelById = async (req, res) => {
         ...hotelWithoutRepeatedFields,
         reviewCount,
         isFavorite,
-        roomTypes: updatedRoomTypes
+        roomTypes: updatedRoomTypes,
       },
     });
   } catch (error) {
@@ -811,12 +690,16 @@ export const getHotelById = async (req, res) => {
 export const getHotelByIdForWeb = async (req, res) => {
   try {
     const { hotelId } = req.query;
-    const userId = req?.user?.id;
+    const userId = req.user?.id;
+
     if (!hotelId) {
       return res.status(400).json({ message: "Hotel ID is required." });
     }
 
-    const hotel = await Hotel.findById(hotelId);
+    const hotel = await Hotel.findById(hotelId).populate({
+      path: "owner",
+      select: "phone",
+    });
 
     if (!hotel) {
       return res.status(404).json({ message: "Hotel not found." });
@@ -833,137 +716,37 @@ export const getHotelByIdForWeb = async (req, res) => {
       isFavorite = !!favorite;
     }
 
+    // Define default room type
+    const defaultRoomType = {
+      type: hotel.type,
+      typeAmenities: hotel.amenities,
+      size: hotel.size,
+      bedType: hotel.bedType,
+      capacity: hotel.capacity,
+      price: hotel.pricePerNight,
+      originalPrice: hotel.originalPricePerNight,
+      description: hotel.description,
+      smokingAllowed: hotel.smokingAllowed,
+      _id: hotel._id,
+      defaultSelected: true,
+    };
+
+    const updatedRoomTypes = [defaultRoomType, ...(hotel.roomTypes || [])];
+
     res.status(200).json({
       message: "Get hotel successfully",
       status: true,
-      hotel: { ...hotel._doc, reviewCount, isFavorite },
+      hotel: {
+        ...hotel._doc,
+        reviewCount,
+        isFavorite,
+        roomTypes: updatedRoomTypes,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-// export const getAllHotelsByFilter = async (req, res) => {
-//   try {
-//     const {
-//       search = "",
-//       page = 1,
-//       limit = 10,
-//       hotelId,
-//       city,
-//       state,
-//       country,
-//       zipCode,
-//       minPrice,
-//       maxPrice,
-//       amenities,
-//       latitude,
-//       longitude,
-//       radius = 5000,
-//     } = req.query;
-
-//     const userId = req.user?.id;
-
-//     const pageNumber = parseInt(page, 10);
-//     const limitNumber = parseInt(limit, 10);
-//     const skip = (pageNumber - 1) * limitNumber;
-
-//     let filter = { adminVerify: true };
-
-//     if (search) {
-//       const searchRegex = { $regex: search, $options: "i" };
-//       filter.$or = [
-//         { name: searchRegex },
-//         { city: searchRegex },
-//         { state: searchRegex },
-//         { country: searchRegex },
-//         { zipCode: searchRegex },
-//       ];
-//     }
-
-//     if (hotelId) filter._id = hotelId;
-//     if (city) filter.city = { $regex: city, $options: "i" };
-//     if (state) filter.state = { $regex: state, $options: "i" };
-//     if (country) filter.country = { $regex: country, $options: "i" };
-//     if (zipCode) filter.zipCode = zipCode;
-
-//     if (minPrice || maxPrice) {
-//       filter.pricePerNight = {};
-//       if (minPrice) filter.pricePerNight.$gte = parseFloat(minPrice);
-//       if (maxPrice) filter.pricePerNight.$lte = parseFloat(maxPrice);
-//     }
-
-//     if (amenities) {
-//       const amenitiesArray = Array.isArray(amenities)
-//         ? amenities
-//         : amenities.split(",");
-//       filter.amenities = { $all: amenitiesArray };
-//     }
-
-//     let hotels = await Hotel.find(filter).skip(skip).limit(limitNumber);
-//     const totalHotels = await Hotel.countDocuments(filter);
-
-//     if (!hotels.length) {
-//       return res
-//         .status(404)
-//         .json({ message: "No hotels found", status: false });
-//     }
-
-//     const hotelIds = hotels.map((hotel) => hotel._id);
-
-//     // Fetch review counts
-//     const reviewCounts = await RatingReview.aggregate([
-//       { $match: { hotel: { $in: hotelIds } } },
-//       { $group: { _id: "$hotel", count: { $sum: 1 } } },
-//     ]);
-
-//     const reviewCountMap = reviewCounts.reduce((acc, cur) => {
-//       acc[cur._id.toString()] = cur.count;
-//       return acc;
-//     }, {});
-
-//     // Fetch favorite status
-//     let favoriteHotels = [];
-//     if (userId) {
-//       favoriteHotels = await Favorite.find({
-//         user: userId,
-//         hotel: { $in: hotelIds },
-//       });
-//     }
-//     const favoriteHotelIds = new Set(
-//       favoriteHotels.map((fav) => fav.hotel.toString())
-//     );
-
-//     let updatedHotels = hotels.map((hotel) => ({
-//       ...hotel._doc,
-//       reviewCount: reviewCountMap[hotel._id.toString()] || 0,
-//       isFavorite: favoriteHotelIds.has(hotel._id.toString()),
-//     }));
-
-//     if (latitude && longitude && radius) {
-//       updatedHotels = updatedHotels.filter((hotel) => {
-//         const distance = geolib.getDistance(
-//           { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-//           { latitude: hotel.latitude, longitude: hotel.longitude }
-//         );
-//         return distance <= parseFloat(radius);
-//       });
-//     }
-
-//     res.status(200).json({
-//       message: "Hotels retrieved successfully",
-//       status: true,
-//       hotels: updatedHotels,
-//       pagination: {
-//         total: totalHotels,
-//         currentPage: pageNumber,
-//         totalPages: Math.ceil(totalHotels / limitNumber),
-//       },
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 
 export const getAllHotelsByFilter = async (req, res) => {
   try {
@@ -1558,7 +1341,10 @@ export const getUserCoupons = async (req, res) => {
     const userId = req?.user?.id;
 
     // Fetch all active public coupons
-    const allPublicCoupons = await Coupon.find({ type: "public", isActive: true });
+    const allPublicCoupons = await Coupon.find({
+      type: "public",
+      isActive: true,
+    });
 
     let assignedAvailableCoupons = [];
     let filteredPublicCoupons = allPublicCoupons;
@@ -1582,9 +1368,11 @@ export const getUserCoupons = async (req, res) => {
     // Merge public and assigned coupons, avoiding duplicates
     const allCouponsMap = new Map();
 
-    [...filteredPublicCoupons, ...assignedAvailableCoupons].forEach((coupon) => {
-      allCouponsMap.set(coupon._id.toString(), coupon);
-    });
+    [...filteredPublicCoupons, ...assignedAvailableCoupons].forEach(
+      (coupon) => {
+        allCouponsMap.set(coupon._id.toString(), coupon);
+      }
+    );
 
     const mergedCoupons = Array.from(allCouponsMap.values());
 
@@ -1602,7 +1390,10 @@ export const applyUserCoupon = async (req, res) => {
     if (!code || !originalPrice) {
       return res
         .status(400)
-        .json({ message: "Field required: code, originalPrice", status: false });
+        .json({
+          message: "Field required: code, originalPrice",
+          status: false,
+        });
     }
 
     // Find user and populate coupons
@@ -1873,6 +1664,7 @@ export const getOwnerById = async (req, res) => {
   }
 };
 
+
 export const getTransactionByOwnerId = async (req, res) => {
   try {
     const ownerId = req.user.id;
@@ -1880,7 +1672,6 @@ export const getTransactionByOwnerId = async (req, res) => {
 
     console.log(month);
     console.log(year);
-    
 
     const filter = {
       ownerId,
@@ -1926,10 +1717,15 @@ export const getTransactionByOwnerId = async (req, res) => {
     const totalBookings = bookings.length;
 
     if (!totalBookings) {
-      return res.status(404).json({ message: "No bookings found", status: false });
+      return res
+        .status(404)
+        .json({ message: "No bookings found", status: false });
     }
 
-    const totalEarnings = bookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    const totalEarnings = bookings.reduce(
+      (sum, b) => sum + (b.totalPrice || 0),
+      0
+    );
 
     res.status(200).json({
       message: "Data retrieved successfully",
@@ -1940,5 +1736,37 @@ export const getTransactionByOwnerId = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getBestCities = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    const query = {};
+
+    if (search) {
+      query.cityName = { $regex: search, $options: "i" }; // Case-insensitive search
+    }
+
+    const total = await BestCity.countDocuments(query);
+
+    const bestCities = await BestCity.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      data: bestCities,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

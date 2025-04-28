@@ -29,6 +29,7 @@ import {
   getAllPolicy,
   getOwnerById,
   getTransactionByOwnerId,
+  getBestCities
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import optionalMiddleware from "../middlewares/optionalMiddleware.js";
@@ -105,5 +106,7 @@ router.get("/getAllPolicy", getAllPolicy);
 router.get("/getOwnerById", authMiddleware, getOwnerById);
 
 router.get("/getTransactionByOwnerId", authMiddleware, getTransactionByOwnerId);
+
+router.get("/getBestCities", getBestCities);
 
 export default router;

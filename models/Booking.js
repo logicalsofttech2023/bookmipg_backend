@@ -64,6 +64,7 @@ const bookingSchema = new mongoose.Schema(
     },
     cancellationReason: { type: String, default: null },
     cancelledAt: { type: Date, default: null },
+    roomType: { type: String },
   },
   { timestamps: true }
 );
