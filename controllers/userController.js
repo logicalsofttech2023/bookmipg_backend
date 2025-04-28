@@ -1783,7 +1783,6 @@ export const getOwnerById = async (req, res) => {
   }
 };
 
-
 export const getTransactionByOwnerId = async (req, res) => {
   try {
     const ownerId = req.user.id;
@@ -1868,5 +1867,27 @@ export const getBestCities = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getHotelByIdForVendor = async (req, res) => {
+  try {
+    const { hotelId } = req.query;
+    if (!hotelId) {
+      return res.status(400).json({ message: "Hotel ID is required." });
+    }
+    const hotel = await Hotel.findById(hotelId);
+
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found." });
+    }
+
+    res.status(200).json({
+      message: "Get hotel successfully",
+      status: true,
+      hotel,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

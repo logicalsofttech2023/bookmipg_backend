@@ -46,6 +46,7 @@ import {
   updateBestCity,
   getBestCityById,
   getAllBestCities,
+  
 } from "../controllers/adminController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadHotel } from "../middlewares/uploadMiddleware.js";

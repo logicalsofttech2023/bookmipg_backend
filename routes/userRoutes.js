@@ -29,7 +29,8 @@ import {
   getAllPolicy,
   getOwnerById,
   getTransactionByOwnerId,
-  getBestCities
+  getBestCities,
+  getHotelByIdForVendor
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import optionalMiddleware from "../middlewares/optionalMiddleware.js";
@@ -108,5 +109,10 @@ router.get("/getOwnerById", authMiddleware, getOwnerById);
 router.get("/getTransactionByOwnerId", authMiddleware, getTransactionByOwnerId);
 
 router.get("/getBestCities", getBestCities);
+
+
+router.get("/getHotelByIdForVendor", authMiddleware, getHotelByIdForVendor);
+
+
 
 export default router;
