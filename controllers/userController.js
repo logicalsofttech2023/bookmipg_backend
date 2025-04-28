@@ -14,6 +14,8 @@ import Coupon from "../models/Coupon.js";
 import { getDistance } from "geolib";
 import axios from "axios";
 import qs from "qs";
+import BestCity from "../models/BestCity.js";
+
 
 export const addReview = async (req, res) => {
   try {
@@ -116,9 +118,6 @@ export const bookHotel = async (req, res) => {
       roomType,
     } = req.body;
     const userId = req.user.id;
-
-    const user = await User.findById(userId);
-
     if (!hotelId || !checkInDate || !checkOutDate || !room || !adults) {
       return res.status(400).json({
         message: "All fields are required (adults cannot be zero)",
@@ -239,13 +238,69 @@ export const bookHotel = async (req, res) => {
   }
 };
 
+// export const getBookingByUserId = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { status } = req.query;
+//     let query = { user: userId };
+
+//     // If status is provided, apply the filter
+//     if (status) {
+//       if (status === "upcoming") {
+//         query.status = { $in: ["upcoming", "pending"] };
+//       } else {
+//         query.status = status;
+//       }
+//     }
+
+//     // Fetch user bookings with hotel details
+//     const bookings = await Booking.find(query).populate("hotel").populate({
+//       path: "ownerId",
+//       select: "phone",
+//     });
+
+//     if (!bookings.length) {
+//       return res
+//         .status(404)
+//         .json({ message: "No bookings found", status: false });
+//     }
+
+//     // Fetch hotel policies based on hotelId for all bookings
+//     const bookingsWithPolicies = await Promise.all(
+//       bookings.map(async (booking) => {
+//         // Get all policies related to the hotelId
+//         const policies = await HotelOwnerPolicy.find({
+//           hotelId: booking.hotel._id,
+//         });
+
+//         return {
+//           ...booking.toObject(),
+//           hotelOwnerPolicies: policies.map((policy) => ({
+//             type: policy.type,
+//             content: policy.content,
+//           })),
+//         };
+//       })
+//     );
+
+//     res.status(200).json({
+//       message: "Bookings retrieved successfully",
+//       bookings: bookingsWithPolicies,
+//       status: true,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching bookings:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+
 export const getBookingByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
     const { status } = req.query;
     let query = { user: userId };
 
-    // If status is provided, apply the filter
     if (status) {
       if (status === "upcoming") {
         query.status = { $in: ["upcoming", "pending"] };
@@ -254,11 +309,12 @@ export const getBookingByUserId = async (req, res) => {
       }
     }
 
-    // Fetch user bookings with hotel details
-    const bookings = await Booking.find(query).populate("hotel").populate({
-      path: "ownerId",
-      select: "phone",
-    });
+    const bookings = await Booking.find(query)
+      .populate("hotel")
+      .populate({
+        path: "ownerId",
+        select: "phone",
+      });
 
     if (!bookings.length) {
       return res
@@ -266,12 +322,44 @@ export const getBookingByUserId = async (req, res) => {
         .json({ message: "No bookings found", status: false });
     }
 
-    // Fetch hotel policies based on hotelId for all bookings
-    const bookingsWithPolicies = await Promise.all(
+    const bookingsWithDetails = await Promise.all(
       bookings.map(async (booking) => {
-        // Get all policies related to the hotelId
+        const hotel = booking.hotel;
+
+        if (!hotel) {
+          return {
+            ...booking.toObject(),
+            hotelOwnerPolicies: [],
+            matchedRoomType: null,
+          };
+        }
+
+        // Find the correct roomType info from hotel.roomTypes
+        let matchedRoomType = hotel?.roomTypes?.find(
+          (roomType) =>
+            roomType.type?.toLowerCase() === booking.roomType?.toLowerCase()
+        );
+
+        // If not found, and if booking.roomType matches hotel.type, create defaultRoomType
+        if (!matchedRoomType && hotel.type?.toLowerCase() === booking.roomType?.toLowerCase()) {
+          matchedRoomType = {
+            type: hotel.type || booking.roomType,
+            typeAmenities: hotel.amenities || [],
+            size: hotel.size || null,
+            bedType: hotel.bedType || null,
+            capacity: hotel.capacity || null,
+            price: hotel.pricePerNight || null,
+            originalPrice: hotel.originalPricePerNight || null,
+            description: hotel.description || null,
+            smokingAllowed: hotel.smokingAllowed || false,
+            _id: hotel._id,
+            defaultSelected: true,
+          };
+        }
+
+        // Get hotel policies for this booking
         const policies = await HotelOwnerPolicy.find({
-          hotelId: booking.hotel._id,
+          hotelId: hotel._id,
         });
 
         return {
@@ -280,13 +368,14 @@ export const getBookingByUserId = async (req, res) => {
             type: policy.type,
             content: policy.content,
           })),
+          matchedRoomType: matchedRoomType || null,
         };
       })
     );
 
     res.status(200).json({
       message: "Bookings retrieved successfully",
-      bookings: bookingsWithPolicies,
+      bookings: bookingsWithDetails,
       status: true,
     });
   } catch (error) {
@@ -1741,30 +1830,11 @@ export const getTransactionByOwnerId = async (req, res) => {
 
 export const getBestCities = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
-
-    const query = {};
-
-    if (search) {
-      query.cityName = { $regex: search, $options: "i" }; // Case-insensitive search
-    }
-
-    const total = await BestCity.countDocuments(query);
-
-    const bestCities = await BestCity.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    const bestCities = await BestCity.find().sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       data: bestCities,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit),
-      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

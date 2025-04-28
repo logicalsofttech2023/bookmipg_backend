@@ -16,7 +16,6 @@ import bcrypt from "bcrypt";
 import Admin from "../models/Admin.js";
 import BestCity from "../models/BestCity.js";
 
-
 const generateJwtToken = (user) => {
   return jwt.sign(
     { id: user._id, phone: user.phone, role: user.role },
@@ -442,7 +441,7 @@ export const addHotel = async (req, res) => {
       size,
       type,
       capacity,
-      smokingAllowed
+      smokingAllowed,
     } = req.body;
     const owner = req.user.id;
 
@@ -498,7 +497,7 @@ export const addHotel = async (req, res) => {
       size,
       type,
       capacity,
-      smokingAllowed
+      smokingAllowed,
     });
 
     await newHotel.save();
@@ -538,7 +537,7 @@ export const updateHotel = async (req, res) => {
       size,
       type,
       capacity,
-      smokingAllowed
+      smokingAllowed,
     } = req.body;
 
     const owner = req.user.id;
@@ -2002,17 +2001,26 @@ export const updateCheckInCheckOutTimes = async (req, res) => {
 
 export const createBestCity = async (req, res) => {
   try {
-    const { cityName, hotelCount } = req.body;
+    const {
+      cityName,
+      hotelCount,
+      latitude = "22.7323",
+      longitude = "75.8265",
+    } = req.body;
     const image = req.file ? req.file.path.split(path.sep).join("/") : "";
-    const bestCity = new BestCity({ image, cityName, hotelCount });
+    const bestCity = new BestCity({
+      image,
+      cityName,
+      hotelCount,
+      latitude,
+      longitude,
+    });
     await bestCity.save();
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Best City created successfully",
-        data: bestCity,
-      });
+    res.status(200).json({
+      success: true,
+      message: "Best City created successfully",
+      data: bestCity,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2021,12 +2029,19 @@ export const createBestCity = async (req, res) => {
 export const updateBestCity = async (req, res) => {
   try {
     const { id } = req.query;
-    const { cityName, hotelCount } = req.body;
+    const {
+      cityName,
+      hotelCount,
+      latitude = "22.7323",
+      longitude = "75.8265",
+    } = req.body;
     const image = req.file ? req.file.path.split(path.sep).join("/") : null;
 
     const updateData = {
       cityName,
       hotelCount,
+      latitude : latitude || "22.7323",
+      longitude : longitude || "75.8265",
     };
 
     if (image) {
