@@ -388,7 +388,6 @@ export const getBookingById = async (req, res) => {
   try {
     const { bookingId } = req.query;
 
-    // Find booking by ID and populate hotel details and owner details
     const booking = await Booking.findById(bookingId)
       .populate("hotel")
       .populate({
@@ -403,22 +402,52 @@ export const getBookingById = async (req, res) => {
         .json({ message: "Booking not found", status: false });
     }
 
-    // Fetch hotel policies related to the hotelId
+    const hotel = booking.hotel;
+
+    let matchedRoomType = null;
+
+    if (hotel) {
+      // Find the matching roomType from hotel's roomTypes
+      matchedRoomType = hotel?.roomTypes?.find(
+        (roomType) =>
+          roomType.type?.toLowerCase() === booking.roomType?.toLowerCase()
+      );
+
+      // If no match in roomTypes, match against hotel type directly
+      if (!matchedRoomType && hotel.type?.toLowerCase() === booking.roomType?.toLowerCase()) {
+        matchedRoomType = {
+          type: hotel.type || booking.roomType,
+          typeAmenities: hotel.amenities || [],
+          size: hotel.size || null,
+          bedType: hotel.bedType || null,
+          capacity: hotel.capacity || null,
+          price: hotel.pricePerNight || null,
+          originalPrice: hotel.originalPricePerNight || null,
+          description: hotel.description || null,
+          smokingAllowed: hotel.smokingAllowed || false,
+          _id: hotel._id,
+          defaultSelected: true,
+        };
+      }
+    }
+
+    // Fetch hotel policies related to the hotel
     const policies = await HotelOwnerPolicy.find({
-      hotelId: booking.hotel._id,
+      hotelId: hotel?._id,
     });
 
-    const bookingWithPolicies = {
+    const bookingWithDetails = {
       ...booking.toObject(),
       hotelOwnerPolicies: policies.map((policy) => ({
         type: policy.type,
         content: policy.content,
       })),
+      matchedRoomType: matchedRoomType || null,
     };
 
     res.status(200).json({
       message: "Booking retrieved successfully",
-      booking: bookingWithPolicies,
+      booking: bookingWithDetails,
       status: true,
     });
   } catch (error) {
@@ -426,6 +455,7 @@ export const getBookingById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const updateBookingStatus = async (req, res) => {
   try {
