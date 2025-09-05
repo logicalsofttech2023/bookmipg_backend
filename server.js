@@ -34,8 +34,15 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
+// app.get("/", (req, res) => {
+//   res.send("Hello World!");
+// });
+
+// Serve React frontend from root-level build folder
+app.use(express.static(path.join(__dirname, "/build")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "build", "index.html"));
 });
 
 // Start Server
