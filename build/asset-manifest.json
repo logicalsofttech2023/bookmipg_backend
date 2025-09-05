@@ -1,0 +1,16 @@
+{
+  "files": {
+    "main.css": "/static/css/main.293b0e87.css",
+    "main.js": "/static/js/main.8f111ff8.js",
+    "static/js/787.139c867b.chunk.js": "/static/js/787.139c867b.chunk.js",
+    "static/media/raw-logo-bookmipg-original.png": "/static/media/raw-logo-bookmipg-original.3dd22178aafc1e8524e3.png",
+    "index.html": "/index.html",
+    "main.293b0e87.css.map": "/static/css/main.293b0e87.css.map",
+    "main.8f111ff8.js.map": "/static/js/main.8f111ff8.js.map",
+    "787.139c867b.chunk.js.map": "/static/js/787.139c867b.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.293b0e87.css",
+    "static/js/main.8f111ff8.js"
+  ]
+}
